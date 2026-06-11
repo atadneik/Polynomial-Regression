@@ -1,0 +1,14 @@
+======================================================================
+TRAIN — POLYNOMIAL REGRESSION (Gradient Descent)
+======================================================================
+Feature: ['weight', 'horsepower', 'displacement'] | n=392 mẫu | test=20%
+
+[Linear] (bậc 1, 4 hệ số gồm bias)
+  Train : R2=0.704 | RMSE=4.19 | MAE=3.22
+  Test  : R2=0.698 | RMSE=4.37 | MAE=3.20
+
+[Polynomial] (bậc 2, 10 hệ số gồm bias)
+  Train : R2=0.753 | RMSE=3.82 | MAE=2.83
+  Test  : R2=0.754 | RMSE=3.94 | MAE=2.82
+
+=> Bậc 2 cải thiện R² test: 0.698 -> 0.754 (+0.056)
