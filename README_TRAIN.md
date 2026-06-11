@@ -1,11 +1,12 @@
-# TRAIN — Polynomial Regression (Gradient Descent) cho Auto MPG
+# TRAIN — Polynomial Regression (Normal Equation) cho Auto MPG
 
-Huấn luyện mô hình **hồi quy đa thức viết tay** bằng **Gradient Descent** để dự
-đoán `mpg`, dựa trên các feature đã được EDA chọn lọc (xem `README_EDA.md`).
+Huấn luyện mô hình **hồi quy đa thức viết tay** bằng **Normal Equation** (nghiệm
+đóng) để dự đoán `mpg`, dựa trên các feature đã được EDA chọn lọc (xem
+`README_EDA.md`).
 
 - **Script:** `train.py`
 - **Dữ liệu:** `data/auto-mpg.data` (392 mẫu sau khi bỏ 6 dòng `horsepower` thiếu)
-- **Output:** `Results/*.{txt,csv}` + `Figures/Train/*.png`
+- **Output:** `Results/*.txt` + `Figures/Train/*.png`
 - **Chạy:** `python3 train.py`
 
 ---
@@ -16,9 +17,7 @@ Huấn luyện mô hình **hồi quy đa thức viết tay** bằng **Gradient D
 |---|---|---|
 | Feature | `weight`, `horsepower`, `displacement` | quan hệ cong mạnh với `mpg` (EDA) |
 | Bậc đa thức | **2** | R² tăng mạnh ở bậc 2, chững ở bậc 3 |
-| Thuật toán | Gradient Descent | tự cài, không dùng `sklearn` |
-| Learning rate | `0.1` | hội tụ ổn định sau khi chuẩn hóa |
-| Số vòng lặp | `5000` | đủ để cost phẳng |
+| Thuật toán | Normal Equation | nghiệm đóng, tự cài, không dùng `sklearn` |
 | Tỉ lệ test | `20%` | seed `42`, cố định để tái lập |
 
 ---
@@ -34,15 +33,15 @@ standardize()      z-score theo thống kê TRAIN (tránh rò rỉ dữ liệu)
    │
 add_bias()         thêm cột 1 -> tổng 10 hệ số
    │
-gradient_descent() tối ưu MSE, lưu cost history
+normal_equation()  giải nghiệm đóng w = (XᵀX)⁻¹ Xᵀy (qua np.linalg.lstsq)
    │
 metrics()          R² / RMSE / MAE trên train & test
 ```
 
 ### Vì sao chuẩn hóa?
 Đặc trưng đa thức có thang đo rất lệch (`weight²` ~ 10⁷ trong khi `horsepower`
-~ 10²). Không chuẩn hóa thì Gradient Descent dao động/phân kỳ. Z-score đưa mọi
-cột về mean 0, std 1 → learning rate chung dùng được cho tất cả.
+~ 10²). Chuẩn hóa z-score đưa mọi cột về mean 0, std 1 → ma trận `XᵀX` cân đối,
+nghịch đảo **ổn định hơn về số học**, hệ số dễ so sánh.
 
 > **Lưu ý chống rò rỉ:** `mean`/`std` tính **chỉ trên tập train**, rồi áp lại
 > cho test — không dùng thống kê toàn bộ dữ liệu.
@@ -59,11 +58,15 @@ cột về mean 0, std 1 → learning rate chung dùng được cho tất cả.
 J(w) = (1/2n) · Σ (ŷᵢ − yᵢ)²
 ```
 
-**Cập nhật trọng số:**
+**Nghiệm tối ưu (Normal Equation):** cho `∇J(w) = 0` rồi giải thẳng:
 
 ```
-w := w − lr · (1/n) · Xᵀ(Xw − y)
+w = (XᵀX)⁻¹ Xᵀy
 ```
+
+Đây là nghiệm chính xác trong **một bước**, không cần learning rate hay lặp.
+Code dùng `np.linalg.lstsq` để giải hệ chuẩn — ổn định hơn nghịch đảo trực tiếp
+và tự xử lý khi `XᵀX` gần suy biến (do đa cộng tuyến).
 
 ---
 
@@ -84,9 +87,7 @@ w := w − lr · (1/n) · Xᵀ(Xw − y)
 | File | Nội dung |
 |---|---|
 | `Results/weights.txt` | 10 trọng số (bias + 9 đặc trưng đa thức) |
-| `Results/gd_cost_history.csv` | cost theo từng vòng lặp |
 | `Results/train_metrics.txt` | log đầy đủ chỉ số train/test |
-| `Figures/Train/cost_curve.png` | đường hội tụ (trục y log) |
 | `Figures/Train/pred_vs_actual.png` | dự đoán vs thực tế trên tập test |
 
 ---
@@ -96,10 +97,8 @@ w := w − lr · (1/n) · Xᵀ(Xw − y)
 Sửa hằng số đầu `train.py`:
 
 ```python
-FEATURES = ["weight", "horsepower", "displacement"]  # đổi/thêm feature
-DEGREE   = 2        # bậc đa thức
-LR       = 0.1      # learning rate
-N_ITERS  = 5000     # số vòng lặp
-TEST_RATIO = 0.2    # tỉ lệ test
-SEED     = 42       # seed tái lập
+FEATURES   = ["weight", "horsepower", "displacement"]  # đổi/thêm feature
+DEGREE     = 2        # bậc đa thức
+TEST_RATIO = 0.2      # tỉ lệ test
+SEED       = 42       # seed tái lập
 ```

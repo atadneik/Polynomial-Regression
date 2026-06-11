@@ -1,5 +1,5 @@
 """
-TRAIN — Polynomial Regression (viết tay, Gradient Descent) cho Auto MPG.
+TRAIN — Polynomial Regression (viết tay, Normal Equation) cho Auto MPG.
 
 Dựa trên kết luận EDA (xem README_EDA.md):
     - Feature tốt nhất: weight, horsepower, displacement (quan hệ CONG với mpg).
@@ -10,11 +10,11 @@ Quy trình:
     1. Load & làm sạch dữ liệu (bỏ 6 dòng horsepower thiếu)
     2. Sinh đặc trưng đa thức bậc d (gồm bình phương + tương tác)
     3. Chuẩn hóa z-score + thêm bias, chia train/test
-    4. Huấn luyện bằng Gradient Descent (theo dõi cost MSE)
+    4. Giải nghiệm đóng bằng Normal Equation: w = (XᵀX)⁻¹ Xᵀy
     5. Đánh giá R^2 / RMSE / MAE, so sánh bậc 1 vs bậc 2
-    6. Lưu weights, metrics, cost history + vẽ hình
+    6. Lưu weights, metrics + vẽ hình
 
-Output: Results/*.{txt,csv} + Figures/Train/*.png
+Output: Results/*.txt + Figures/Train/*.png
 Chạy:   python3 train.py
 """
 
@@ -40,10 +40,8 @@ COLS = ["mpg", "cylinders", "displacement", "horsepower", "weight",
 FEATURES = ["weight", "horsepower", "displacement"]  # chọn theo EDA
 TARGET = "mpg"
 
-# Siêu tham số Gradient Descent
+# Siêu tham số
 DEGREE = 2
-LR = 0.1
-N_ITERS = 5000
 TEST_RATIO = 0.2
 SEED = 42
 
@@ -107,18 +105,14 @@ def add_bias(X):
 # ---------------------------------------------------------------------------
 # Mô hình
 # ---------------------------------------------------------------------------
-def gradient_descent(X, y, lr, n_iters):
-    """Hồi quy tuyến tính trên ma trận đặc trưng X (đã có cột bias)."""
-    n, m = X.shape
-    w = np.zeros(m)
-    history = []
-    for _ in range(n_iters):
-        err = X @ w - y
-        cost = (err @ err) / (2 * n)  # MSE/2
-        history.append(cost)
-        grad = (X.T @ err) / n
-        w = w - lr * grad
-    return w, np.array(history)
+def normal_equation(X, y):
+    """Nghiệm đóng cho hồi quy tuyến tính: w = (XᵀX)⁻¹ Xᵀy.
+
+    Dùng lstsq (giải hệ chuẩn ổn định về số học, tự xử lý khi XᵀX gần suy
+    biến do đa cộng tuyến) thay vì nghịch đảo ma trận trực tiếp.
+    """
+    w, *_ = np.linalg.lstsq(X, y, rcond=None)
+    return w
 
 
 def metrics(y_true, y_pred):
@@ -132,41 +126,27 @@ def metrics(y_true, y_pred):
 
 
 def fit_and_eval(X_raw, y, degree, label):
-    """Sinh poly bậc 'degree' -> chuẩn hóa -> GD -> đánh giá train/test."""
+    """Sinh poly bậc 'degree' -> chuẩn hóa -> Normal Equation -> đánh giá."""
     Xtr_raw, Xte_raw, ytr, yte = train_test_split(X_raw, y, TEST_RATIO, SEED)
     Ptr = poly_features(Xtr_raw, degree)
     Pte = poly_features(Xte_raw, degree)
     Ptr, Pte, _, _ = standardize(Ptr, Pte)
     Ptr, Pte = add_bias(Ptr), add_bias(Pte)
 
-    w, hist = gradient_descent(Ptr, ytr, LR, N_ITERS)
+    w = normal_equation(Ptr, ytr)
     tr = metrics(ytr, Ptr @ w)
     te = metrics(yte, Pte @ w)
 
     log(f"[{label}] (bậc {degree}, {Ptr.shape[1]} hệ số gồm bias)")
     log(f"  Train : R2={tr[0]:.3f} | RMSE={tr[1]:.2f} | MAE={tr[2]:.2f}")
     log(f"  Test  : R2={te[0]:.3f} | RMSE={te[1]:.2f} | MAE={te[2]:.2f}")
-    return {"w": w, "hist": hist, "train": tr, "test": te,
+    return {"w": w, "train": tr, "test": te,
             "Xte_raw": Xte_raw, "yte": yte, "Pte": Pte, "degree": degree}
 
 
 # ---------------------------------------------------------------------------
 # Hình
 # ---------------------------------------------------------------------------
-def plot_cost(hist):
-    plt.figure(figsize=(8, 5))
-    plt.plot(hist, color="#4C72B0", lw=2)
-    plt.xlabel("Vòng lặp")
-    plt.ylabel("Cost (MSE/2)")
-    plt.title(f"Đường hội tụ Gradient Descent (lr={LR}, {N_ITERS} vòng)")
-    plt.yscale("log")
-    plt.tight_layout()
-    out = os.path.join(FIG_DIR, "cost_curve.png")
-    plt.savefig(out, dpi=120, bbox_inches="tight")
-    plt.close()
-    print(f"Đã lưu: {out}")
-
-
 def plot_pred_vs_actual(res):
     yte = res["yte"]
     yhat = res["Pte"] @ res["w"]
@@ -193,20 +173,17 @@ def plot_pred_vs_actual(res):
 def save_outputs(res):
     np.savetxt(os.path.join(RESULT_DIR, "weights.txt"), res["w"],
                fmt="%.6f", header="Trọng số Polynomial bậc 2 (gồm bias đầu tiên)")
-    pd.DataFrame({"iter": np.arange(len(res["hist"])), "cost": res["hist"]}) \
-        .to_csv(os.path.join(RESULT_DIR, "gd_cost_history.csv"), index=False)
     with open(os.path.join(RESULT_DIR, "train_metrics.txt"), "w",
               encoding="utf-8") as f:
         f.write("\n".join(REPORT) + "\n")
     print(f"Đã lưu: {os.path.join(RESULT_DIR, 'weights.txt')}")
-    print(f"Đã lưu: {os.path.join(RESULT_DIR, 'gd_cost_history.csv')}")
     print(f"Đã lưu: {os.path.join(RESULT_DIR, 'train_metrics.txt')}")
 
 
 def main():
     X, y = load_data()
     log("=" * 70)
-    log("TRAIN — POLYNOMIAL REGRESSION (Gradient Descent)")
+    log("TRAIN — POLYNOMIAL REGRESSION (Normal Equation)")
     log("=" * 70)
     log(f"Feature: {FEATURES} | n={len(y)} mẫu | test={TEST_RATIO:.0%}")
     log("")
@@ -220,7 +197,6 @@ def main():
     log(f"=> Bậc 2 cải thiện R² test: {lin['test'][0]:.3f} -> "
         f"{poly['test'][0]:.3f} (+{gain:.3f})")
 
-    plot_cost(poly["hist"])
     plot_pred_vs_actual(poly)
     save_outputs(poly)
     print("\nHoàn tất huấn luyện.")
