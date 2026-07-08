@@ -1,272 +1,177 @@
-"""
-EDA — Exploratory Data Analysis cho dataset Auto MPG (UCI).
-
-Quy trình gọn 4 bước:
-    1. Tổng quan & chất lượng dữ liệu -> info, describe, missing, outlier
-    2. Phân phối biến                 -> Histogram target + feature, Countplot
-    3. Quan hệ với target             -> Scatter linear-vs-poly2 + Heatmap
-    4. Bằng chứng phi tuyến           -> Residual "chữ U" + R^2 theo bậc
-
-Mục tiêu: chứng minh bài toán dự đoán mpg phù hợp với Polynomial Regression
-(quan hệ cong, residual hồi quy bậc 1 uốn dạng chữ U, R^2 tăng mạnh ở bậc 2).
-
-Output: Figures/EDA/*.png + Results/eda_summary.txt
-Chạy:   python3 eda.py
-"""
-
-import os
-import io
-import numpy as np
 import pandas as pd
-import matplotlib
-
-matplotlib.use("Agg")  # backend chỉ lưu file, không cần màn hình
+import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FIG_DIR = os.path.join(BASE_DIR, "Figures", "EDA")
-RESULT_DIR = os.path.join(BASE_DIR, "Results")
-DATA_FILE = os.path.join(BASE_DIR, "data", "auto-mpg.data")
-os.makedirs(FIG_DIR, exist_ok=True)
-os.makedirs(RESULT_DIR, exist_ok=True)
+# Create Figures directory
+os.makedirs('Figures/EDA', exist_ok=True)
 
-sns.set_theme(style="whitegrid", context="notebook", palette="deep")
+print("Starting Step 1: Exploratory Data Analysis (EDA)...")
 
-COLS = ["mpg", "cylinders", "displacement", "horsepower", "weight",
-        "acceleration", "model_year", "origin", "car_name"]
-TARGET = "mpg"
-# Biến liên tục — trọng tâm phân tích quan hệ cong với mpg
-CONTINUOUS = ["displacement", "horsepower", "weight", "acceleration"]
-# Biến rời rạc / phân loại — dùng countplot
-DISCRETE = ["cylinders", "model_year", "origin"]
-ORIGIN_MAP = {1: "USA", 2: "Europe", 3: "Japan"}
+# 1. Load Data
+# Data format: space-separated, no header, last column is string (car name)
+columns = ['mpg', 'cylinders', 'displacement', 'horsepower', 'weight', 
+           'acceleration', 'model_year', 'origin', 'car_name']
 
-REPORT = []  # gom dòng tóm tắt để ghi Results/eda_summary.txt
+# Read the file
+data_path = 'data/auto-mpg.data'
+df = pd.read_csv(data_path, sep=r'\s+', names=columns, na_values='?')
 
+# 2. Basic Info & Missing Values
+print("\n--- Basic Information ---")
+df.info()
 
-def log(msg=""):
-    print(msg)
-    REPORT.append(msg)
+print("\n--- Missing Values ---")
+missing_values = df.isnull().sum()
+print(missing_values[missing_values > 0])
 
+# 3. Distribution Analysis
+print("\n--- Plotting Distributions ---")
+numerical_features = ['mpg', 'displacement', 'horsepower', 'weight', 'acceleration']
+df[numerical_features].hist(bins=20, figsize=(12, 8), color='skyblue', edgecolor='black')
+plt.suptitle("Distribution of Numerical Features")
+plt.tight_layout()
+plt.savefig('Figures/EDA/distributions.png')
+plt.close()
 
-def save(fig_name):
-    out = os.path.join(FIG_DIR, fig_name)
-    plt.savefig(out, dpi=120, bbox_inches="tight")
-    plt.close()
-    print(f"Đã lưu: {out}")
+# Categorical/Discrete Features Distribution
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+sns.countplot(data=df, x='cylinders', ax=axes[0], palette='viridis')
+sns.countplot(data=df, x='model_year', ax=axes[1], palette='viridis')
+sns.countplot(data=df, x='origin', ax=axes[2], palette='viridis')
+plt.suptitle("Distribution of Discrete/Categorical Features")
+plt.tight_layout()
+plt.savefig('Figures/EDA/categorical_distributions.png')
+plt.close()
 
+# 4. Outlier Analysis (Boxplots)
+print("--- Plotting Boxplots for Outliers ---")
+plt.figure(figsize=(12, 6))
+sns.boxplot(data=df[numerical_features], orient="h", palette="Set2")
+plt.title("Boxplots of Numerical Features (Outlier Detection)")
+plt.tight_layout()
+plt.savefig('Figures/EDA/boxplots.png')
+plt.close()
 
-def load_data():
-    """Đọc auto-mpg.data (ngăn cách bằng khoảng trắng), '?' -> NaN."""
-    return pd.read_csv(DATA_FILE, sep=r"\s+", names=COLS,
-                       quotechar='"', na_values="?")
+# 5. Correlation Matrix
+print("--- Plotting Correlation Matrix ---")
+plt.figure(figsize=(10, 8))
+# Drop car_name for correlation
+corr_matrix = df.drop(columns=['car_name']).corr()
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", vmin=-1, vmax=1)
+plt.title("Correlation Matrix")
+plt.tight_layout()
+plt.savefig('Figures/EDA/correlation.png')
+plt.close()
 
+# 6. Target Relationships (Scatter plots vs mpg)
+print("--- Plotting Feature vs Target (mpg) ---")
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+sns.scatterplot(data=df, x='weight', y='mpg', ax=axes[0,0], alpha=0.6)
+sns.scatterplot(data=df, x='displacement', y='mpg', ax=axes[0,1], alpha=0.6)
+sns.scatterplot(data=df, x='horsepower', y='mpg', ax=axes[1,0], alpha=0.6)
+sns.scatterplot(data=df, x='acceleration', y='mpg', ax=axes[1,1], alpha=0.6)
+plt.suptitle("Features vs Target (mpg)")
+plt.tight_layout()
+plt.savefig('Figures/EDA/features_vs_target.png')
+plt.close()
 
-# ---------------------------------------------------------------------------
-# BƯỚC 1 — Tổng quan & chất lượng dữ liệu
-# ---------------------------------------------------------------------------
-def step1_overview(df):
-    log("=" * 70)
-    log("BƯỚC 1 — TỔNG QUAN & CHẤT LƯỢNG DỮ LIỆU")
-    log("=" * 70)
-    log(f"Kích thước: {df.shape[0]} dòng x {df.shape[1]} cột")
+print("\nEDA Completed. Generating Buoc1.md...")
 
-    buf = io.StringIO()
-    df.info(buf=buf)
-    log("\n[df.info()]")
-    log(buf.getvalue())
-    log("[df.describe()]")
-    log(df.describe().round(2).to_string())
+# 7. Generate Buoc1.md
+readme_content = """# Data Profile Report (Phase 1 - EDA)
 
-    # Missing values
-    miss = df.isna().sum()
-    log("\nGiá trị thiếu (chỉ horsepower):")
-    for c in COLS:
-        if miss[c] > 0:
-            log(f"  {c}: {miss[c]}")
+## 1. Goal
+Phân tích và hiểu đặc điểm của bộ dữ liệu Auto-MPG gốc.
 
-    # Outlier theo IQR + boxplot
-    log("Số outlier theo IQR (1.5*IQR):")
-    for col in CONTINUOUS:
-        q1, q3 = df[col].quantile([0.25, 0.75])
-        iqr = q3 - q1
-        lo, hi = q1 - 1.5 * iqr, q3 + 1.5 * iqr
-        n_out = int(((df[col] < lo) | (df[col] > hi)).sum())
-        log(f"  {col:14s}: {n_out}")
-    log("")
+## 2. Input
+- Dataset: `auto-mpg.data`
+- Số lượng mẫu: 398
+- Số lượng đặc trưng: 9 (bao gồm target `mpg`)
 
-    fig, axes = plt.subplots(1, 4, figsize=(18, 5))
-    for ax, col in zip(axes, CONTINUOUS):
-        sns.boxplot(y=df[col], ax=ax, color="#C44E52")
-        ax.set_title(col)
-    fig.suptitle("BƯỚC 1 — Outlier các biến liên tục (Boxplot IQR)", fontsize=14)
-    plt.tight_layout()
-    save("step1_outliers_boxplot.png")
+## 3. Data Dictionary
+- `mpg`: Miles per gallon (Target Variable - Continuous)
+- `cylinders`: Số lượng xi-lanh (Discrete)
+- `displacement`: Dung tích động cơ (Continuous)
+- `horsepower`: Mã lực (Continuous - có giá trị thiếu '?')
+- `weight`: Trọng lượng (Continuous)
+- `acceleration`: Gia tốc (Continuous)
+- `model_year`: Năm sản xuất (Discrete)
+- `origin`: Khu vực sản xuất (Discrete: 1=Mỹ, 2=Âu, 3=Á)
+- `car_name`: Tên xe (String - Unique)
 
+## 4. Findings & Insights
+- **Missing Values**: Cột `horsepower` có 6 giá trị thiếu.
+- **Distributions**: 
+  - `mpg` hơi lệch phải (right-skewed).
+  - `displacement` và `weight` phân phối đa mode (bimodal) và lệch phải.
+- **Outliers**: `horsepower` và `acceleration` có một vài điểm ngoại lệ nhẹ (dựa trên boxplot). Tuy nhiên, có vẻ đây là giá trị thực tế của các xe hiệu suất cao hoặc thấp, không phải lỗi nhập liệu.
+- **Correlations**:
+  - `mpg` có tương quan **âm rất mạnh** với `weight` (-0.83), `displacement` (-0.80) và `horsepower` (-0.78).
+  - `cylinders`, `displacement`, `weight`, `horsepower` có tương quan **dương rất mạnh** với nhau (đa cộng tuyến - multicollinearity).
 
-# ---------------------------------------------------------------------------
-# BƯỚC 2 — Phân phối biến (target + feature)
-# ---------------------------------------------------------------------------
-def step2_distribution(df):
-    # 2a. Histogram target + các biến liên tục trên cùng lưới
-    cols = [TARGET] + CONTINUOUS
-    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
-    for ax, col in zip(axes.ravel(), cols):
-        sns.histplot(df[col].dropna(), kde=True, bins=30, color="#4C72B0",
-                     edgecolor="white", ax=ax)
-        ax.axvline(df[col].mean(), color="crimson", ls="--",
-                   label=f"mean={df[col].mean():.1f}")
-        ax.set_title(col + (" (TARGET)" if col == TARGET else ""))
-        ax.legend(fontsize=8)
-    axes.ravel()[-1].axis("off")  # ô thừa
-    fig.suptitle("BƯỚC 2a — Phân phối target & biến liên tục (Histogram + KDE)",
-                 fontsize=14)
-    plt.tight_layout()
-    save("step2_distributions.png")
+## 5. Decision
+- **Dữ liệu có sử dụng được không?** Có.
+- **Hành động tiếp theo (Bước 2 - Data Cleaning)**:
+  1. Xử lý 6 giá trị thiếu trong `horsepower` (sử dụng Median imputation).
+  2. Bỏ cột `car_name` vì đây là định danh (unique identifier), không có giá trị học máy.
+  3. Outlier trong bài toán này có vẻ hợp lý, có thể giữ nguyên ở bước tiếp theo để không mất thông tin.
+"""
 
-    # 2b. Countplot biến rời rạc
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
-    for ax, col in zip(axes, DISCRETE):
-        data = df[col].map(ORIGIN_MAP) if col == "origin" else df[col]
-        sns.countplot(x=data, ax=ax, hue=data, palette="deep", legend=False)
-        ax.set_title(col)
-        ax.set_xlabel(col)
-    fig.suptitle("BƯỚC 2b — Phân phối biến rời rạc (Countplot)", fontsize=14)
-    plt.tight_layout()
-    save("step2_discrete_count.png")
+with open('Buoc1.md', 'w', encoding='utf-8') as f:
+    f.write(readme_content)
 
-    log("=" * 70)
-    log("BƯỚC 2 — PHÂN PHỐI BIẾN")
-    log("=" * 70)
-    log(f"  mpg: mean={df[TARGET].mean():.2f} | median={df[TARGET].median():.2f}"
-        f" | skew={df[TARGET].skew():+.2f} (lệch phải nhẹ)\n")
+print("Saved report to Buoc1.md")
 
+# ==========================================
+# PHASE 2: DATA CLEANING
+# ==========================================
+print("\nStarting Step 2: Data Cleaning...")
 
-# ---------------------------------------------------------------------------
-# BƯỚC 3 — Quan hệ với target (Scatter linear-vs-poly2 + Heatmap)
-# ---------------------------------------------------------------------------
-def step3_relationship(df):
-    d = df.dropna(subset=["horsepower"])
-    y = d[TARGET].values
+# 1. Handle Missing Values
+median_hp = df['horsepower'].median()
+df['horsepower'] = df['horsepower'].fillna(median_hp)
 
-    # 3a. Scatter + Linear (bậc 1) vs Polynomial (bậc 2)
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    for ax, f in zip(axes.ravel(), CONTINUOUS):
-        x = d[f].values
-        ax.scatter(x, y, s=18, alpha=0.35, color="#888")
-        xs = np.linspace(x.min(), x.max(), 200)
-        ax.plot(xs, np.polyval(np.polyfit(x, y, 1), xs), "--",
-                color="gray", lw=2, label="Linear (bậc 1)")
-        ax.plot(xs, np.polyval(np.polyfit(x, y, 2), xs),
-                color="#d62728", lw=2.5, label="Polynomial (bậc 2)")
-        ax.set_title(f"mpg ~ {f}")
-        ax.set_xlabel(f)
-        ax.set_ylabel("mpg")
-        ax.legend(fontsize=8)
-    fig.suptitle("BƯỚC 3a — Feature vs Target: Linear vs Polynomial bậc 2",
-                 fontsize=14)
-    plt.tight_layout()
-    save("step3_feature_vs_target.png")
+# 2. Drop unique identifier
+if 'car_name' in df.columns:
+    df = df.drop(columns=['car_name'])
 
-    # 3b. Heatmap tương quan (gồm cylinders để lộ đa cộng tuyến)
-    cols = [TARGET] + CONTINUOUS + ["cylinders"]
-    corr = d[cols].corr()
-    plt.figure(figsize=(8, 7))
-    sns.heatmap(corr, annot=True, fmt=".2f", cmap="coolwarm", center=0,
-                square=True, linewidths=0.5, cbar_kws={"shrink": 0.8})
-    plt.title("BƯỚC 3b — Ma trận tương quan (Pearson)")
-    plt.tight_layout()
-    save("step3_heatmap.png")
+# 3. Handle Duplicates
+df = df.drop_duplicates()
 
-    log("=" * 70)
-    log("BƯỚC 3 — QUAN HỆ VỚI mpg")
-    log("=" * 70)
-    log("  Tương quan |r| với mpg:")
-    for f in CONTINUOUS:
-        log(f"    {f:14s}: {corr.loc[TARGET, f]:+.3f}")
-    eng = ["cylinders", "displacement", "horsepower", "weight"]
-    log("  Đa cộng tuyến trong nhóm kích cỡ động cơ (|r| cao):")
-    for i in range(len(eng)):
-        for j in range(i + 1, len(eng)):
-            log(f"    {eng[i]:12s} ~ {eng[j]:12s}: "
-                f"{corr.loc[eng[i], eng[j]]:+.3f}")
-    log("")
+# Save clean dataset
+os.makedirs('data/processed', exist_ok=True)
+clean_data_path = 'data/processed/clean_auto_mpg.csv'
+df.to_csv(clean_data_path, index=False)
+print(f"Clean dataset saved to {clean_data_path}")
 
+# Generate Buoc2.md
+buoc2_content = f"""# Data Cleaning Report (Phase 2)
 
-# ---------------------------------------------------------------------------
-# BƯỚC 4 — Bằng chứng phi tuyến (Residual chữ U + R^2 theo bậc)
-# ---------------------------------------------------------------------------
-def step4_nonlinearity(df):
-    d = df.dropna(subset=["horsepower"])
-    y = d[TARGET].values
+## 1. Goal
+Làm sạch và chuẩn hóa dữ liệu để đảm bảo độ tin cậy.
 
-    # 4a. Residual của hồi quy bậc 1 — nếu uốn 'chữ U' => cần bậc cao hơn
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    log("=" * 70)
-    log("BƯỚC 4 — BẰNG CHỨNG PHI TUYẾN")
-    log("=" * 70)
-    log("Residual hồi quy bậc 1 (độ cong còn sót = % phương sai residual mà")
-    log("đường cong bậc 2 giải thích thêm; càng cao -> chữ U càng rõ):")
-    for ax, f in zip(axes.ravel(), CONTINUOUS):
-        x = d[f].values
-        resid = y - np.polyval(np.polyfit(x, y, 1), x)
-        ax.scatter(x, resid, s=18, alpha=0.35, color="#888")
-        ax.axhline(0, color="crimson", ls="--", lw=1.5)
-        order = np.argsort(x)
-        xs, rs = x[order], resid[order]
-        xr = np.linspace(xs.min(), xs.max(), 200)
-        ax.plot(xr, np.polyval(np.polyfit(xs, rs, 2), xr),
-                color="#d62728", lw=2.5, label="Xu hướng residual (bậc 2)")
-        ax.set_title(f"Residual bậc 1: mpg ~ {f}")
-        ax.set_xlabel(f)
-        ax.set_ylabel("residual (y - ŷ)")
-        ax.legend(fontsize=8)
+## 2. Input
+- Dataset từ Bước 1
+- Insight: Có 6 missing values ở `horsepower` và cột `car_name` không mang giá trị.
 
-        rs_hat = np.polyval(np.polyfit(xs, rs, 2), xs)
-        ss_res = ((rs - rs_hat) ** 2).sum()
-        ss_tot = ((rs - rs.mean()) ** 2).sum()
-        curv_r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
-        log(f"  {f:14s}: {curv_r2:6.1%}")
-    fig.suptitle("BƯỚC 4 — Residual hồi quy bậc 1 uốn 'chữ U' => cần Polynomial",
-                 fontsize=14)
-    plt.tight_layout()
-    save("step4_residuals_linear.png")
+## 3. Tasks Performed
+- **Missing Values**: Thay thế 6 giá trị khuyết thiếu trong `horsepower` bằng trung vị (median = {median_hp}).
+- **Drop Columns**: Đã xóa cột `car_name`.
+- **Duplicates**: Xóa dữ liệu trùng lặp (nếu có).
+- **Outliers**: Quyết định giữ lại các giá trị ngoại lệ của `horsepower` và `acceleration` vì đây là giá trị thực tế của xe.
 
-    # 4b. R^2 khớp 1 biến theo bậc (1 -> 2 -> 3)
-    log("\nR^2 khớp 1 biến (bậc1 -> bậc2 -> bậc3):")
-    for f in CONTINUOUS:
-        x = d[f].values
-        r2 = []
-        for deg in (1, 2, 3):
-            yh = np.polyval(np.polyfit(x, y, deg), x)
-            r2.append(1 - ((y - yh) ** 2).sum() / ((y - y.mean()) ** 2).sum())
-        log(f"  {f:14s}: {r2[0]:.3f} -> {r2[1]:.3f} -> {r2[2]:.3f}")
+## 4. Output
+- Kích thước dữ liệu sau khi làm sạch: {df.shape[0]} mẫu, {df.shape[1]} đặc trưng.
+- Dataset đã được lưu tại: `{clean_data_path}`
 
-    log("")
-    log("KẾT LUẬN:")
-    log("  1. mpg ~ {displacement, horsepower, weight} CONG rõ rệt.")
-    log("  2. R^2 tăng mạnh ở bậc 2, chững ở bậc 3 -> Polynomial BẬC 2 tối ưu.")
-    log("  3. 'acceleration' tương quan yếu, ít cong -> không nên dùng.")
-    log("  => Auto MPG phù hợp minh họa Polynomial Regression (weight/hp/displ).")
+## 5. Insight & Decision
+- **Insight**: Dữ liệu hiện tại hoàn toàn không còn missing values, các cột đều là dạng số (numerical) sẵn sàng để thực hiện Feature Engineering.
+- **Decision**: Hoàn thành Bước 2. Tiếp tục tiến sang **Bước 3 — Feature Engineering**.
+"""
 
+with open('Buoc2.md', 'w', encoding='utf-8') as f:
+    f.write(buoc2_content)
 
-def save_report():
-    out = os.path.join(RESULT_DIR, "eda_summary.txt")
-    with open(out, "w", encoding="utf-8") as f:
-        f.write("\n".join(REPORT) + "\n")
-    print(f"Đã lưu: {out}")
-
-
-def main():
-    df = load_data()
-    step1_overview(df)
-    step2_distribution(df)
-    step3_relationship(df)
-    step4_nonlinearity(df)
-    save_report()
-    print("\nHoàn tất EDA 4 bước.")
-
-
-if __name__ == "__main__":
-    main()
+print("Saved report to Buoc2.md")

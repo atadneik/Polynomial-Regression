@@ -1,0 +1,53 @@
+[
+    {
+        "experiment_id": "EXP_202607d_155720",
+        "timestamp": "2026-07-08T15:57:20.832420",
+        "dataset": {
+            "name": "Auto MPG",
+            "raw_samples": 398,
+            "clean_samples": 398,
+            "target": "mpg",
+            "features": [
+                "cylinders",
+                "displacement",
+                "horsepower",
+                "weight",
+                "acceleration",
+                "model_year",
+                "origin_USA",
+                "origin_Europe",
+                "origin_Asia",
+                "weight_per_hp",
+                "displacement_per_cylinder"
+            ]
+        },
+        "data_split": {
+            "random_seed": 42,
+            "train_ratio": 0.7,
+            "val_ratio": 0.15,
+            "test_ratio": 0.15
+        },
+        "model_architecture": {
+            "pipeline": [
+                "PolynomialFeatures",
+                "StandardScaler",
+                "Ridge Regression"
+            ],
+            "best_hyperparameters": {
+                "degree": 2,
+                "alpha": 0.2984,
+                "include_bias": false
+            }
+        },
+        "metrics": {
+            "baseline_val_r2": 0.8481,
+            "best_val_r2": 0.872,
+            "test_r2": 0.9397,
+            "test_rmse": 1.9906,
+            "cv_mean_r2": 0.8728,
+            "cv_std_r2": 0.0311,
+            "cv_mean_rmse": 2.7432
+        },
+        "breakthrough_insight": "Sử dụng PolynomialFeatures bậc 2 đã giải quyết được hiện tượng Underfitting do tính chất phi tuyến của dữ liệu (thể hiện rõ ở biểu đồ phần dư hình chữ U của Baseline). Kết hợp Ridge Regression (alpha=0.2984) để kiểm soát Overfitting."
+    }
+]
