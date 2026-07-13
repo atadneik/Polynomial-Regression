@@ -1,0 +1,668 @@
+CHƯƠNG 5. THỰC NGHIỆM THUẬT TOÁN SUPERVISED LEARNING
+5.1 Giới thiệu Auto MPG Dataset 
+5.1.1 Giới thiệu bài toán
+Trong chương này, đề tài tiến hành thực nghiệm thuật toán Polynomial Regression trên bộ dữ liệu Auto MPG Dataset nhằm dự đoán mức tiêu thụ nhiên liệu của xe hơi. Mục tiêu của bài toán là xây dựng một mô hình có khả năng dự đoán giá trị MPG – Miles Per Gallon, tức là số dặm xe có thể đi được với một gallon nhiên liệu.
+MPG là một chỉ số quan trọng trong ngành ô tô. Giá trị MPG càng cao thì xe càng tiết kiệm nhiên liệu, ngược lại MPG thấp thể hiện xe tiêu hao nhiên liệu nhiều hơn. Việc dự đoán MPG có ý nghĩa thực tiễn trong nhiều trường hợp như đánh giá hiệu suất xe, hỗ trợ thiết kế động cơ, phân tích xu hướng tiết kiệm nhiên liệu và giúp người dùng lựa chọn phương tiện phù hợp.
+Bài toán này thuộc nhóm Supervised Learning – Regression vì dữ liệu đầu vào có các đặc trưng kỹ thuật của xe, còn đầu ra cần dự đoán là một giá trị liên tục.
+Luồng bài toán tổng quát:
+
+Thông số kỹ thuật xe
+(cylinders, displacement, horsepower, weight, acceleration, model_year, origin...) 
+│
+Tiền xử lý dữ liệu và kỹ thuật đặc trưng
+│
+▼
+Polynomial Regression + Ridge Regression 
+│
+▼
+Dự đoán MPG
+5.1.2 giới thiệu tập dữ liệu Auto MPG
+Bộ dữ liệu được sử dụng là Auto MPG Dataset, được thu thập từ kho dữ liệu UCI Machine Learning Repository. Đây là một bộ dữ liệu kinh điển thường được sử dụng trong các bài toán hồi quy của Machine Learning.
+Bộ dữ liệu ban đầu gồm 398 mẫu xe và 9 thuộc tính, bao gồm thông tin về dung tích xi-lanh, công suất động cơ, trọng lượng xe, khả năng tăng tốc, năm sản xuất, xuất xứ xe và chỉ số MPG.
+
+Bảng 5.1.2 Thông tin tổng quan về bộ dữ liệu
+
+Hình 5.1.2 Các thuộc tính trong dữ liệu
+
+Hình 5.1.2 Phân phối các biến số tròn bộ dữ liệu Auto MPG
+5.2 Khám phá dữ liệu 
+5.2.1 Exploratory Data Analysis
+Mục tiêu của bước EDA là hiểu cấu trúc dữ liệu, kiểm tra dữ liệu thiếu, phát hiện ngoại lệ, đánh giá phân phối các biến và xác định mối quan hệ giữa các đặc trưng đầu vào với biến mục tiêu MPG.
+Kết quả kiểm tra dữ liệu cho thấy bộ dữ liệu có 398 dòng và 9 cột. Trong đó, cột horsepower có 6 giá trị thiếu, được biểu diễn bằng ký tự "?" trong dữ liệu gốc. Các biến còn lại không có giá trị thiếu.
+Một số thống kê mô tả quan trọng:
+
+Khi phân tích tương quan với biến mục tiêu mpg, nhóm nhận thấy các biến weight, displacement và horsepower có tương quan âm mạnh với MPG. 
+
+Bảng 5.2.1 Tương quan giữa các đặc trưng chính và MPG
+Ngoài ra, heatmap tương quan cũng cho thấy có hiện tượng đa cộng tuyến giữa các biến kỹ thuật động cơ như cylinders, displacement, horsepower và weight. Điều này hợp lý vì xe có dung tích lớn thường nặng hơn, có nhiều xi-lanh hơn và công suất cao hơn. 
+
+Hình 5.2.1 Ma trận tương quan giữa các đặc trưng trong bộ dữ liệu 
+Một phát hiện quan trọng trong EDA là mối quan hệ giữa horsepower, weight, displacement với mpg không hoàn toàn tuyến tính. Các biểu đồ scatter cho thấy dữ liệu có xu hướng cong, đặc biệt ở các xe có công suất và trọng lượng cao. Điều này là cơ sở để lựa chọn Polynomial Regression thay vì chỉ dùng Linear Regression. 
+
+Hình 5.2.1 Quan hệ giữa các đặc trưng đầu vào và biến mục tiêu MPG
+Để kiểm tra rõ hơn tính phi tuyến, nhóm xây dựng mô hình tuyến tính đơn giản và quan sát phần dư. Nếu mô hình tuyến tính phù hợp, phần dư sẽ phân bố ngẫu nhiên quanh trục 0. Tuy nhiên, biểu đồ residual cho thấy phần dư tạo thành dạng cong, chứng tỏ mô hình tuyến tính đang bị underfitting. 
+
+Hình 5.2.1 Biểu đồ phần dư của mô hình tuyến tính cho thấy quan hệ phi tuyến 
+Kết luận từ EDA:
+Bộ dữ liệu phù hợp để xây dựng mô hình dự đoán MPG.
+horsepower có 6 giá trị thiếu cần xử lý.
+Các biến weight, horsepower, displacement có ảnh hưởng mạnh đến MPG.
+Dữ liệu có quan hệ phi tuyến, phù hợp với Polynomial Regression.
+Một số biến có đa cộng tuyến, do đó cần dùng Ridge Regression để ổn định mô hình.
+5.2.2 Data Cleaning
+Sau bước EDA, dữ liệu được làm sạch để đảm bảo mô hình không học từ dữ liệu lỗi hoặc dữ liệu không phù hợp.
+Trong phần cũ, nhóm đã chọn cách loại bỏ 6 dòng có giá trị thiếu ở cột horsepower. Cách này vẫn hợp lý nếu số lượng dữ liệu thiếu rất ít. Tuy nhiên, theo pipeline mới trong file ZIP và outline, nhóm sử dụng phương pháp Median Imputation, tức là thay thế giá trị thiếu bằng trung vị của cột horsepower.
+Lý do chọn trung vị thay vì trung bình là vì horsepower có một số giá trị ngoại lệ cao. Nếu dùng trung bình, giá trị thay thế có thể bị kéo lệch bởi các xe có công suất quá lớn. Trung vị giúp kết quả ổn định và ít bị ảnh hưởng bởi outlier hơn.
+Đoạn code xử lý missing value:
+# Thay thế missing value ở horsepower bằng Median để chống nhiễu từ outlier
+median_hp = df['horsepower'].median()
+df['horsepower'] = df['horsepower'].fillna(median_hp)
+
+# Bỏ cột định danh vì không có ý nghĩa dự đoán
+df.drop(columns=['car_name'], inplace=True)
+Sau khi xử lý, bộ dữ liệu vẫn giữ đủ 398 mẫu, thay vì giảm còn 392 mẫu như cách làm cũ. Đây là điểm cải tiến quan trọng vì mô hình có thêm dữ liệu để học. 
+
+Bảng 5.2.2 Kết quả làm sạch dữ liệu
+Đối với các giá trị ngoại lệ ở horsepower và acceleration, nhóm không loại bỏ vì đây có thể là những xe có đặc điểm kỹ thuật thực tế, ví dụ xe thể thao hoặc xe có khả năng tăng tốc đặc biệt. Việc giữ lại outlier giúp mô hình học được sự đa dạng của dữ liệu. 
+
+Hình 5.2.2 Biểu đồ boxplot dùng để quan sát các giá trị ngoại lệ 
+5.2.3 Feature Engineering
+Feature Engineering là bước tạo ra hoặc biến đổi các đặc trưng nhằm giúp mô hình học tốt hơn. Trong bài toán dự đoán MPG, các đặc trưng kỹ thuật xe có mối quan hệ chặt chẽ với nhau. Do đó, ngoài các biến gốc, nhóm tạo thêm các đặc trưng mới dựa trên kiến thức thực tế về xe hơi.
+Trước tiên, biến origin được chuyển đổi bằng One-Hot Encoding. Nếu giữ origin dưới dạng số 1, 2, 3, mô hình có thể hiểu sai rằng các vùng xuất xứ có thứ tự lớn nhỏ. One-Hot Encoding giúp biến origin thành các cột độc lập như origin_USA, origin_Europe, origin_Asia.
+Tiếp theo, nhóm tạo thêm hai đặc trưng mới:
+weight_per_hp = weight / horsepower
+displacement_per_cylinder = displacement / cylinders
+Trong đó, weight_per_hp phản ánh tỷ lệ trọng lượng trên một đơn vị mã lực. Đây là một đặc trưng quan trọng vì nó thể hiện mức tải mà động cơ phải kéo. Một chiếc xe nặng nhưng công suất thấp sẽ có tỷ lệ weight_per_hp cao, ảnh hưởng lớn đến hiệu quả tiêu thụ nhiên liệu.
+Đoạn code Feature Engineering:
+# One-Hot Encoding cho origin
+X = pd.get_dummies(X, columns=['origin'])
+
+# Feature Creation: Tạo đặc trưng từ hiểu biết thực tế
+X['weight_per_hp'] = X['weight'] / X['horsepower']
+X['displacement_per_cylinder'] = X['displacement'] / X['cylinders']
+Sau bước này, tập đặc trưng đầu vào gồm 11 biến: 
+cylinders
+displacement
+horsepower
+weight
+acceleration
+model_year
+origin_USA
+origin_Europe
+origin_Asia
+weight_per_hp
+displacement_per_cylinder
+
+Hình 5.2.3 Quan hệ giữa các đặc trưng mới và MPG 
+Một điểm cần lưu ý là nhóm chưa thực hiện chuẩn hóa dữ liệu ở bước này. Việc chuẩn hóa được đưa vào trong Pipeline ở giai đoạn mô hình hóa để tránh Data Leakage. Nếu chuẩn hóa toàn bộ dữ liệu trước khi chia train/test, thông tin từ tập test sẽ vô tình ảnh hưởng đến tập train, làm kết quả đánh giá bị lạc quan hơn thực tế. 
+5.2.4 Bước 4: Data Split
+Sau khi hoàn tất làm sạch và tạo đặc trưng, dữ liệu được chia thành ba tập:
+Train Set: dùng để huấn luyện mô hình.
+Validation Set: dùng để lựa chọn mô hình và tinh chỉnh siêu tham số.
+Test Set: chỉ dùng một lần ở cuối để đánh giá mô hình sau cùng.
+Tỷ lệ chia dữ liệu là:
+
+Đoạn code chia dữ liệu: 
+from sklearn.model_selection import train_test_split
+
+# Chia 70% Train, 30% Temp
+X_train, X_temp, y_train, y_temp = train_test_split(
+    X, y, test_size=0.30, random_state=42
+)
+
+# Chia tiếp Temp thành 15% Validation và 15% Test
+X_val, X_test, y_val, y_test = train_test_split(
+    X_temp, y_temp, test_size=0.50, random_state=42
+)
+Việc chia thêm tập Validation là điểm khác biệt lớn so với bản cũ. Trong bản cũ, dữ liệu chỉ được chia 80% Train và 20% Test. Cách chia mới tốt hơn vì tập Validation giúp lựa chọn mô hình và tinh chỉnh tham số mà không làm “lộ” thông tin từ tập Test. 
+
+Hình 5.2.4 So sánh phân phối MPG giữa Train, Validation và Test 
+Quan sát biểu đồ phân phối cho thấy ba tập Train, Validation và Test có phân phối khá giống nhau. Điều này chứng tỏ phép chia dữ liệu không làm lệch cấu trúc dữ liệu ban đầu, đảm bảo tính công bằng khi đánh giá mô hình. 
+
+5. Baseline Model Report (Phase 5)
+5.1. Mục tiêu
+Mục tiêu của giai đoạn này là xây dựng mô hình cơ sở (Baseline Model) bằng thuật toán Linear Regression. Đây là mô hình đơn giản nhất được sử dụng làm chuẩn so sánh cho các mô hình sẽ được phát triển ở các giai đoạn tiếp theo.
+Việc xây dựng Baseline Model giúp trả lời hai câu hỏi quan trọng:
+Mô hình tuyến tính có thể dự đoán dữ liệu ở mức độ nào?
+Có cần sử dụng mô hình phức tạp hơn hay không?
+Toàn bộ các mô hình sau này, đặc biệt là Polynomial Regression, phải đạt kết quả tốt hơn Baseline thì mới chứng minh được hiệu quả của việc tăng độ phức tạp của mô hình.
+ Hình 5.1 – Quy trình xây dựng Baseline Model
+
+
+Hình 5.1. Quy trình xây dựng và đánh giá Baseline Model.
+5.2. Dữ liệu đầu vào
+Mô hình được xây dựng trên hai tập dữ liệu:
+Training Set (X_train.csv, y_train.csv)
+Validation Set (X_val.csv, y_val.csv)
+Trước khi huấn luyện, các đặc trưng được chuẩn hóa bằng StandardScaler nhằm đưa tất cả các biến về cùng một thang đo. Điều này giúp mô hình học ổn định hơn và tránh hiện tượng các biến có giá trị lớn chi phối quá trình tối ưu.
+Để đảm bảo quá trình đánh giá khách quan, StandardScaler được kết hợp với LinearRegression thông qua Pipeline của Scikit-learn. Khi đó, bộ chuẩn hóa chỉ được fit trên tập huấn luyện, còn tập Validation chỉ được transform bằng các tham số đã học. Cách thực hiện này giúp loại bỏ hoàn toàn hiện tượng Data Leakage.
+(Chèn Hình 5.2 – Pipeline chống Data Leakage)
+
+Hình 5.2. Pipeline kết hợp StandardScaler và Linear Regression.
+Nếu có biểu đồ phân bố dữ liệu trước và sau chuẩn hóa, có thể chèn ngay sau phần này để minh họa hiệu quả của StandardScaler.
+(Chèn Hình 5.3 – Phân bố dữ liệu trước và sau StandardScaler)
+
+
+Hình 5.3. So sánh dữ liệu trước và sau khi chuẩn hóa.
+5.3. Huấn luyện mô hình
+Sau khi dữ liệu được chuẩn hóa, mô hình Linear Regression được huấn luyện trên tập Training và sau đó thực hiện dự đoán trên cả tập Train và Validation.
+Hiệu suất mô hình được đánh giá thông qua bốn chỉ số:
+Mean Squared Error (MSE)
+Root Mean Squared Error (RMSE)
+Mean Absolute Error (MAE)
+Hệ số xác định (R²)
+Kết quả trên Training Set
+Kết quả trên Validation Set
+Quan sát các chỉ số trên cho thấy hiệu suất giữa tập Train và Validation khá tương đồng. Điều này chứng tỏ mô hình chưa xuất hiện hiện tượng Overfitting, đồng thời có khả năng tổng quát hóa tương đối tốt trên dữ liệu chưa từng được nhìn thấy.
+(Chèn Hình 5.4 – Biểu đồ so sánh Metrics giữa Train và Validation)
+
+Hình 5.4. So sánh các chỉ số đánh giá trên tập Train và Validation.
+5.4. Trực quan hóa kết quả dự đoán
+Bên cạnh các chỉ số đánh giá, việc trực quan hóa giúp quan sát rõ hơn khả năng dự đoán của mô hình.
+Biểu đồ Actual vs Predicted thể hiện mối quan hệ giữa giá trị thực tế và giá trị dự đoán. Nếu mô hình dự đoán hoàn hảo, toàn bộ điểm dữ liệu sẽ nằm trên đường chéo 45°.
+Quan sát hình dưới đây có thể thấy phần lớn điểm dữ liệu tập trung quanh đường lý tưởng, chứng tỏ mô hình đạt khả năng dự đoán tương đối tốt. Tuy nhiên, vẫn tồn tại nhiều điểm lệch khỏi đường chéo, đặc biệt ở các vùng giá trị nhỏ và lớn, cho thấy mô hình chưa mô tả hoàn toàn chính xác mối quan hệ giữa các biến.
+(Chèn Hình 5.5 – Actual vs Predicted)
+
+Hình 5.5. So sánh giữa giá trị thực tế và giá trị dự đoán của Baseline Model.
+5.5. Phân tích phần dư (Residual Analysis)
+Để đánh giá sâu hơn chất lượng mô hình, phần dư (Residuals) được phân tích.
+Nếu mô hình phù hợp với dữ liệu, các phần dư sẽ phân bố ngẫu nhiên quanh giá trị 0 mà không tạo thành bất kỳ quy luật nào.
+Tuy nhiên, kết quả thu được cho thấy các phần dư hình thành một xu hướng cong rõ rệt thay vì phân bố ngẫu nhiên. Hiện tượng này phản ánh rằng sai số của mô hình mang tính hệ thống, không phải do nhiễu ngẫu nhiên.
+Đặc biệt, ở vùng dự đoán thấp và vùng dự đoán cao, mô hình thường mắc sai số theo cùng một hướng. Điều này chứng minh rằng Linear Regression chưa đủ khả năng mô tả mối quan hệ phi tuyến tồn tại trong dữ liệu.
+(Chèn Hình 5.6 – Residual Plot)
+
+Hình 5.6. Biểu đồ Residuals của Baseline Model.
+Nếu có thêm Histogram Residual hoặc QQ Plot thì đặt ngay sau Residual Plot.
+(Chèn Hình 5.7 – Histogram Residuals)
+
+Hình 5.7. Phân bố của phần dư trên tập Validation.
+5.6. Kết quả đầu ra
+Sau quá trình huấn luyện và đánh giá, Baseline Model đạt:
+Validation R² = 0.8481
+Validation RMSE = 2.7304
+Validation MAE = 2.1784
+Toàn bộ kết quả trực quan được lưu trong thư mục:
+Figures/Baseline/
+bao gồm các biểu đồ đánh giá và phân tích sai số của mô hình.
+5.7. Kết luận và quyết định
+Mô hình Linear Regression đã hoàn thành vai trò của một Baseline Model với hệ số xác định khoảng 84,8% trên tập Validation.
+Mặc dù mô hình chưa gặp hiện tượng Overfitting, nhưng biểu đồ Residuals cho thấy sai số xuất hiện theo một quy luật rõ ràng. Điều này chứng minh rằng dữ liệu không hoàn toàn tuân theo quan hệ tuyến tính và mô hình hiện tại đang rơi vào trạng thái Underfitting.
+Do đó, Baseline Model sẽ được sử dụng làm mốc so sánh cho các mô hình tiếp theo. Trong giai đoạn Model Selection, Polynomial Regression sẽ được thử nghiệm nhằm bổ sung các đặc trưng phi tuyến, giảm sai số dự đoán và cải thiện hiệu suất tổng thể của mô hình.
+(Chèn Hình 5.8 – Sơ đồ Decision Flow: Linear Regression → Residual Pattern → Underfitting → Polynomial Regression)
+Hình 5.8. Quy trình ra quyết định chuyển sang Polynomial Regression.
+
+6. Model Selection Report (Phase 6)
+6.1. Mục tiêu
+Sau khi hoàn thành Baseline Model ở giai đoạn trước, mục tiêu của Phase 6 là lựa chọn mô hình phù hợp nhất (Model Selection) để sử dụng trong các bước tối ưu tiếp theo.
+Thay vì chỉ đánh giá một mô hình duy nhất, nhiều mô hình hồi quy được xây dựng và huấn luyện trên cùng một tập dữ liệu nhằm so sánh hiệu suất dự đoán, khả năng tổng quát hóa và mức độ phức tạp của từng mô hình.
+Các mục tiêu chính của giai đoạn này bao gồm:
+Đánh giá hiệu suất của nhiều mô hình trên cùng một tập dữ liệu.
+Kiểm chứng giả thuyết rằng dữ liệu có tồn tại mối quan hệ phi tuyến.
+Phát hiện hiện tượng Underfitting hoặc Overfitting.
+Lựa chọn mô hình có khả năng tổng quát hóa tốt nhất để tiếp tục tối ưu siêu tham số.
+(Chèn Hình 6.1 – Quy trình Model Selection)
+
+
+Hình 6.1. Quy trình xây dựng, đánh giá và lựa chọn mô hình.
+6.2. Dữ liệu đầu vào
+Toàn bộ các mô hình được huấn luyện trên cùng một tập dữ liệu đã được tiền xử lý ở Phase 4, bao gồm:
+Training Set (X_train.csv, y_train.csv)
+Validation Set (X_val.csv, y_val.csv)
+Để đảm bảo tính nhất quán giữa các mô hình, toàn bộ quá trình tiền xử lý được thực hiện thông qua Pipeline của Scikit-learn. Mỗi Pipeline bao gồm các bước chuẩn hóa dữ liệu bằng StandardScaler, sinh đặc trưng đa thức (Polynomial Features) nếu có và huấn luyện mô hình hồi quy tương ứng.
+Năm mô hình ứng viên được xây dựng gồm:
+Baseline (Linear Regression)
+Polynomial Regression (Degree = 2)
+Polynomial Regression (Degree = 3)
+Polynomial Regression (Degree = 2) + Ridge Regression
+Polynomial Regression (Degree = 2) + Lasso Regression
+Việc sử dụng cùng một tập dữ liệu và cùng quy trình tiền xử lý giúp đảm bảo kết quả so sánh giữa các mô hình là khách quan và công bằng.
+(Chèn Hình 6.2 – Pipeline của các Candidate Models)
+
+Hình 6.2. Kiến trúc Pipeline của các mô hình được đánh giá.
+6.3. Huấn luyện và đánh giá mô hình
+Sau khi xây dựng Pipeline cho từng mô hình, quá trình huấn luyện được thực hiện trên tập Training. Sau đó, các mô hình được đánh giá trên cả tập Training và Validation nhằm phân tích khả năng học và khả năng tổng quát hóa.
+Hai chỉ số chính được sử dụng trong giai đoạn này là:
+Hệ số xác định (R²)
+Root Mean Squared Error (RMSE)
+Bảng 6.1. Kết quả đánh giá các Candidate Models
+Qua bảng trên có thể nhận thấy hiệu suất giữa các mô hình có sự khác biệt rõ rệt. Việc bổ sung các đặc trưng đa thức giúp mô hình biểu diễn tốt hơn mối quan hệ giữa các biến. Tuy nhiên, nếu bậc đa thức quá cao thì nguy cơ xuất hiện hiện tượng Overfitting cũng tăng lên đáng kể.
+(Chèn Hình 6.3 – Biểu đồ so sánh Validation R²)
+
+Hình 6.3. So sánh hệ số xác định (R²) trên tập Validation.
+(Chèn Hình 6.4 – Biểu đồ so sánh Validation RMSE)
+
+Hình 6.4. So sánh RMSE trên tập Validation của các mô hình.
+6.4. Phân tích kết quả
+Kết quả thực nghiệm cho thấy việc mở rộng không gian đặc trưng bằng Polynomial Features đã cải thiện đáng kể hiệu suất của mô hình so với Baseline Linear Regression.
+Đối với mô hình Polynomial Regression bậc 2, hệ số xác định trên tập Validation tăng từ 0.8481 lên 0.8638, trong khi RMSE giảm từ 2.7304 xuống 2.5851. Điều này chứng minh rằng dữ liệu tồn tại mối quan hệ phi tuyến và mô hình tuyến tính chưa thể mô tả đầy đủ quy luật của dữ liệu.
+Ngược lại, khi tăng bậc đa thức lên Degree = 3, mô hình đạt kết quả rất cao trên tập Training với Train R² = 0.9744 và Train RMSE = 1.2642. Tuy nhiên, trên tập Validation, hiệu suất giảm nghiêm trọng với Validation R² = -93.5356 và Validation RMSE = 68.1064.
+Sự chênh lệch rất lớn giữa kết quả trên Training và Validation cho thấy mô hình đã ghi nhớ dữ liệu huấn luyện thay vì học được quy luật tổng quát. Đây là biểu hiện điển hình của hiện tượng Overfitting.
+Trong khi đó, mô hình Polynomial Regression kết hợp Ridge Regression đạt kết quả tốt nhất với:
+Validation R² = 0.8696
+Validation RMSE = 2.5295
+Việc bổ sung cơ chế L2 Regularization giúp hạn chế sự phức tạp của mô hình, giảm nguy cơ Overfitting và cải thiện khả năng tổng quát hóa.
+Đối với Lasso Regression, mặc dù cũng sử dụng Regularization nhưng hiệu suất thấp hơn Ridge Regression trong bài toán này.
+(Chèn Hình 6.5 – So sánh Train và Validation của từng mô hình)
+
+Hình 6.5. So sánh hiệu suất giữa Training và Validation của các mô hình.
+6.5. Phân tích hiện tượng Overfitting
+Một kết quả quan trọng của giai đoạn này là phát hiện hiện tượng Overfitting ở mô hình Polynomial Regression bậc 3.
+Việc tăng bậc đa thức làm số lượng đặc trưng tăng nhanh, giúp mô hình có khả năng biểu diễn linh hoạt hơn. Tuy nhiên, khi số lượng đặc trưng quá lớn, mô hình bắt đầu học cả nhiễu của dữ liệu huấn luyện thay vì học quy luật thực sự của dữ liệu.
+Điều này được thể hiện rõ qua sự khác biệt rất lớn giữa kết quả trên tập Training và Validation. Mặc dù mô hình đạt sai số rất thấp trên dữ liệu huấn luyện, nhưng lại dự đoán rất kém trên dữ liệu chưa từng được nhìn thấy.
+Ngược lại, mô hình Polynomial Regression bậc 2 kết hợp Ridge Regression duy trì hiệu suất ổn định giữa hai tập dữ liệu, cho thấy khả năng tổng quát hóa tốt hơn.
+(Chèn Hình 6.6 – Minh họa Underfitting, Good Fit và Overfitting)
+
+Hình 6.6. Minh họa ba trạng thái học của mô hình.
+(Chèn Hình 6.7 – So sánh Degree 1, Degree 2 và Degree 3)
+
+Hình 6.7. Ảnh hưởng của bậc đa thức đến đường hồi quy.
+6.6. Kết quả đầu ra
+Sau quá trình đánh giá và so sánh, mô hình có hiệu suất tốt nhất là:
+Polynomial Regression (Degree = 2) + Ridge Regression
+Validation R² = 0.8696
+Validation RMSE = 2.5295
+Toàn bộ các biểu đồ và kết quả đánh giá được lưu trong thư mục:
+Figures/Selection/
+bao gồm:
+Model Comparison
+Validation Metrics
+Train vs Validation
+Overfitting Analysis
+
+6.7. Kết luận và quyết định
+Kết quả của Phase 6 cho thấy việc bổ sung đặc trưng đa thức đã cải thiện đáng kể hiệu suất dự đoán so với mô hình tuyến tính ban đầu. Tuy nhiên, khi tăng bậc đa thức lên Degree = 3, mô hình xuất hiện hiện tượng Overfitting nghiêm trọng, làm giảm khả năng tổng quát hóa trên dữ liệu mới.
+Trong số các mô hình được đánh giá, Polynomial Regression (Degree = 2) kết hợp Ridge Regression đạt hiệu suất tốt nhất với hệ số xác định cao nhất và sai số dự đoán thấp nhất trên tập Validation. Đồng thời, mô hình vẫn duy trì được sự ổn định giữa tập Training và Validation.
+Do đó, mô hình này được lựa chọn làm Candidate Model để chuyển sang giai đoạn tiếp theo.
+Ở Phase 7 – Hyperparameter Tuning, tham số α (alpha) của Ridge Regression sẽ được tối ưu nhằm tìm ra mức Regularization phù hợp nhất, từ đó tiếp tục cải thiện hiệu suất dự đoán và khả năng tổng quát hóa của mô hình.
+(Chèn Hình 6.8 – Decision Flow: Candidate Models → Performance Comparison → Remove Degree 3 → Select Ridge → Hyperparameter Tuning)
+
+Hình 6.8. Quy trình lựa chọn mô hình và chuyển sang bước tối ưu siêu tham số.
+7. Hyperparameter Tuning Report (Phase 7)
+7.1. Mục tiêu
+Sau khi hoàn thành quá trình lựa chọn mô hình ở Phase 6, mô hình Polynomial Regression (Degree = 2) kết hợp Ridge Regression được xác định là mô hình có hiệu suất tốt nhất trên tập Validation. Tuy nhiên, hiệu quả của Ridge Regression phụ thuộc rất lớn vào giá trị của tham số alpha (α), hay còn gọi là hệ số Regularization.
+Mục tiêu của giai đoạn này là tìm ra giá trị alpha tối ưu, giúp mô hình đạt được sự cân bằng giữa khả năng học dữ liệu và khả năng tổng quát hóa. Một giá trị alpha quá nhỏ sẽ khiến mô hình dễ bị Overfitting, trong khi alpha quá lớn sẽ làm mô hình trở nên quá đơn giản và dẫn đến Underfitting.
+Để xác định giá trị phù hợp nhất, nhiều mô hình Ridge Regression với các giá trị alpha khác nhau được huấn luyện và đánh giá trên tập Validation. Giá trị alpha cho kết quả tốt nhất sẽ được lựa chọn để sử dụng trong mô hình cuối cùng.
+(Chèn Hình 7.1 – Quy trình Hyperparameter Tuning)
+
+Hình 7.1. Quy trình tối ưu siêu tham số của mô hình Ridge Regression.
+7.2. Dữ liệu đầu vào
+Mô hình được sử dụng trong giai đoạn này là:
+Polynomial Features (Degree = 2)
+StandardScaler
+Ridge Regression
+Tham số cần tối ưu là:
+Alpha (α) – hệ số Regularization của Ridge Regression.
+Để tìm được giá trị tối ưu, một không gian tìm kiếm (Search Space) gồm 100 giá trị alpha được xây dựng trên thang đo logarit, trải từ:
+10⁻³ đến 10⁴
+Việc sử dụng thang đo logarit giúp quá trình tìm kiếm bao phủ cả các giá trị rất nhỏ và rất lớn của alpha, từ đó đánh giá toàn diện ảnh hưởng của Regularization đến hiệu suất mô hình.
+Mỗi giá trị alpha được sử dụng để huấn luyện một mô hình độc lập, sau đó hiệu suất được đánh giá trên tập Validation thông qua các chỉ số:
+Validation R²
+Validation RMSE
+Training RMSE
+(Chèn Hình 7.2 – Search Space của Alpha trên thang Logarithmic)
+
+Hình 7.2. Không gian tìm kiếm của tham số alpha.
+7.3. Quá trình tối ưu siêu tham số
+Trong giai đoạn này, mô hình được huấn luyện lặp lại 100 lần, tương ứng với 100 giá trị alpha khác nhau.
+Đối với mỗi lần huấn luyện, các chỉ số RMSE trên tập Training và Validation được ghi nhận. Sau đó, các kết quả được tổng hợp thành Validation Curve, cho phép quan sát sự thay đổi hiệu suất của mô hình khi alpha tăng dần.
+Biểu đồ Validation Curve đóng vai trò quan trọng trong việc xác định vùng giá trị alpha mang lại hiệu suất tối ưu và giúp phân tích mối quan hệ giữa Overfitting và Underfitting.
+(Chèn Hình 7.3 – Validation Curve)
+
+Hình 7.3. Validation Curve của Ridge Regression theo giá trị alpha.
+7.4. Phân tích kết quả
+Kết quả từ Validation Curve cho thấy hiệu suất của mô hình thay đổi đáng kể theo giá trị alpha.
+Alpha nhỏ (α < 1)
+Ở vùng bên trái của biểu đồ, alpha có giá trị rất nhỏ nên tác động của Regularization gần như không đáng kể. Khi đó, Ridge Regression hoạt động gần giống với Polynomial Regression thông thường.
+Mô hình đạt sai số rất thấp trên tập Training, tuy nhiên sai số trên tập Validation lại cao hơn đáng kể. Khoảng cách giữa hai đường RMSE cho thấy mô hình bắt đầu xuất hiện dấu hiệu Overfitting, tức là học quá chi tiết dữ liệu huấn luyện.
+Alpha lớn (α > 100)
+Ở vùng bên phải của biểu đồ, giá trị alpha quá lớn khiến các hệ số hồi quy bị thu nhỏ mạnh về gần 0.
+Điều này làm mô hình trở nên quá đơn giản và không còn đủ khả năng biểu diễn mối quan hệ phi tuyến của dữ liệu.
+Kết quả là cả Training RMSE và Validation RMSE đều tăng nhanh, phản ánh hiện tượng Underfitting.
+Vùng tối ưu (Sweet Spot)
+Giữa hai vùng trên xuất hiện một khoảng giá trị alpha từ khoảng 0.1 đến 10, nơi đường Validation RMSE đạt giá trị nhỏ nhất.
+Đây là vùng mà mô hình vừa đủ linh hoạt để học được quy luật của dữ liệu, đồng thời vẫn được Regularization kiểm soát nhằm tránh học nhiễu.
+Giá trị alpha tối ưu được xác định là:
+α = 0.2984
+Tại điểm này, mô hình đạt hiệu suất tốt nhất trên tập Validation.
+(Chèn Hình 7.4 – Minh họa Overfitting – Sweet Spot – Underfitting)
+
+Hình 7.4. Ảnh hưởng của giá trị alpha đến khả năng tổng quát hóa của mô hình.
+7.5. Kết quả đầu ra
+Sau quá trình tối ưu, bộ siêu tham số tốt nhất được xác định như sau:
+Hiệu suất đạt được:
+Bộ tham số tối ưu được lưu tại:
+Results/best_params.json
+Biểu đồ Validation Curve được lưu tại:
+Figures/Tuning/validation_curve.png
+(Chèn Hình 7.5 – So sánh hiệu suất trước và sau Tuning)
+
+
+Hình 7.5. So sánh hiệu suất của mô hình trước và sau khi tối ưu siêu tham số.
+7.6. Kết luận và quyết định
+Quá trình tối ưu siêu tham số đã xác định thành công giá trị alpha = 0.2984, giúp mô hình đạt hiệu suất cao nhất trên tập Validation.
+So với mô hình Ridge Regression trước khi tối ưu, mô hình sau Tuning đạt hệ số xác định cao hơn và sai số dự đoán thấp hơn, đồng thời vẫn duy trì sự cân bằng giữa khả năng học dữ liệu và khả năng tổng quát hóa.
+Kết quả này cho thấy việc lựa chọn giá trị alpha phù hợp đóng vai trò quan trọng trong việc kiểm soát độ phức tạp của mô hình và hạn chế hiện tượng Overfitting.
+Do đó, mô hình cuối cùng được lựa chọn là:
+Polynomial Features (Degree = 2)
+StandardScaler
+Ridge Regression (Alpha = 0.2984)
+Mô hình này sẽ được sử dụng trong Phase 8 – Final Model Training, nơi mô hình được huấn luyện lại trên toàn bộ dữ liệu huấn luyện (hoặc kết hợp tập Train và Validation) trước khi đánh giá trên tập Test độc lập.
+(Chèn Hình 7.6 – Decision Flow: Candidate Model → Hyperparameter Tuning → Best Alpha → Final Training)
+
+Hình 7.6. Quy trình lựa chọn mô hình cuối cùng sau khi tối ưu siêu tham số.
+8. Final Model Training Report (Phase 8)
+8.1. Mục tiêu
+Sau khi hoàn thành quá trình lựa chọn mô hình và tối ưu siêu tham số ở các giai đoạn trước, mục tiêu của Phase 8 là huấn luyện mô hình cuối cùng (Final Model) với cấu hình tối ưu nhất và đóng gói mô hình để phục vụ cho việc đánh giá trên tập Test cũng như triển khai trong thực tế.
+Khác với các giai đoạn trước, ở bước này cấu trúc mô hình và các siêu tham số đã được xác định hoàn toàn. Do đó, mô hình chỉ cần được huấn luyện lại trên toàn bộ dữ liệu huấn luyện nhằm tận dụng tối đa thông tin có sẵn trước khi đánh giá trên dữ liệu chưa từng được sử dụng.
+Kết quả của giai đoạn này là một mô hình hoàn chỉnh, đã được huấn luyện, kiểm tra và lưu dưới dạng tệp để có thể tái sử dụng trong các ứng dụng sau này.
+(Chèn Hình 8.1 – Quy trình Final Model Training)
+
+Hình 8.1. Quy trình huấn luyện và đóng gói mô hình cuối cùng.
+8.2. Dữ liệu đầu vào
+Mô hình cuối cùng được xây dựng dựa trên toàn bộ dữ liệu huấn luyện, bao gồm:
+Tập Training
+Tập Validation
+Hai tập dữ liệu này được gộp lại thành tập X_train_full với tổng cộng 338 mẫu dữ liệu.
+Việc gộp dữ liệu chỉ được thực hiện sau khi quá trình lựa chọn mô hình và tối ưu siêu tham số đã hoàn tất. Lúc này, tập Validation không còn được sử dụng để đánh giá mô hình mà được bổ sung vào dữ liệu huấn luyện nhằm giúp mô hình học được nhiều thông tin hơn.
+Các siêu tham số được nạp từ tệp:
+Results/best_params.json
+Cấu hình cuối cùng của mô hình:
+(Chèn Hình 8.2 – Merge Train và Validation thành Train Full)
+
+Hình 8.2. Quá trình gộp tập Training và Validation để tạo tập Train Full.
+8.3. Quá trình huấn luyện mô hình
+Sau khi dữ liệu được gộp, Pipeline hoàn chỉnh được khởi tạo với ba thành phần:
+Polynomial Features (Degree = 2)
+StandardScaler
+Ridge Regression (Alpha = 0.29836472402833375)
+Pipeline giúp đảm bảo toàn bộ quá trình sinh đặc trưng, chuẩn hóa dữ liệu và huấn luyện mô hình được thực hiện theo đúng thứ tự và có thể tái sử dụng trong quá trình dự đoán sau này.
+Mô hình sau đó được huấn luyện trên tập X_train_full.
+(Chèn Hình 8.3 – Pipeline của Final Model)
+
+Hình 8.3. Pipeline hoàn chỉnh của mô hình cuối cùng.
+8.4. Phân tích kết quả huấn luyện
+Một điểm đáng chú ý trong giai đoạn này là chiến lược Merge Data.
+Ở các giai đoạn trước, tập Validation được giữ riêng để đánh giá và lựa chọn mô hình. Tuy nhiên, sau khi mô hình và siêu tham số đã được xác định, tập Validation không còn vai trò trong quá trình tối ưu.
+Do đó, việc gộp tập Validation vào tập Training giúp tăng số lượng mẫu từ 278 lên 338, tương đương mức tăng khoảng 21% dữ liệu huấn luyện.
+Nhờ có thêm dữ liệu, mô hình có khả năng học được đầy đủ hơn các đặc điểm của dữ liệu, từ đó cải thiện tính ổn định và khả năng tổng quát hóa khi đánh giá trên tập Test.
+(Chèn Hình 8.4 – Minh họa chiến lược Merge Data)
+
+
+Hình 8.4. So sánh dữ liệu trước và sau khi gộp tập Validation.
+
+8.5. Hiệu suất huấn luyện
+Trong quá trình huấn luyện, thời gian thực thi của toàn bộ Pipeline được ghi nhận.
+Kết quả cho thấy mô hình hoàn thành quá trình huấn luyện chỉ trong:
+16.61 mili giây (ms)
+Đây là thời gian rất ngắn do Ridge Regression sử dụng phương pháp giải tối ưu dạng Closed-form Solution hoặc các thuật toán đại số tuyến tính hiệu quả như Cholesky Decomposition.
+Không giống các mô hình học sâu cần nhiều vòng lặp (Epoch) để cập nhật trọng số, Ridge Regression có thể tìm nghiệm tối ưu gần như ngay lập tức.
+Điều này mang lại nhiều ưu điểm:
+Thời gian huấn luyện rất nhanh.
+Tiết kiệm tài nguyên tính toán.
+Dễ dàng triển khai trên các hệ thống có cấu hình phần cứng hạn chế.
+Phù hợp với các ứng dụng cần huấn luyện hoặc cập nhật mô hình thường xuyên.
+(Chèn Hình 8.5 – Thời gian huấn luyện Pipeline)
+
+
+Hình 8.5. Thời gian huấn luyện của mô hình Ridge Regression.
+8.6. Đóng gói mô hình
+Sau khi huấn luyện hoàn tất, toàn bộ Pipeline được lưu dưới dạng một đối tượng duy nhất bằng thư viện Joblib.
+Việc lưu Pipeline thay vì chỉ lưu mô hình giúp đảm bảo toàn bộ các bước xử lý dữ liệu được giữ nguyên, bao gồm:
+Polynomial Features
+StandardScaler
+Ridge Regression
+Khi triển khai thực tế, dữ liệu đầu vào chỉ cần truyền trực tiếp vào Pipeline mà không cần thực hiện lại các bước tiền xử lý bằng tay.
+Mô hình được lưu tại:
+models/final_polynomial_ridge_model.joblib
+(Chèn Hình 8.6 – Export Pipeline bằng Joblib)
+
+Hình 8.6. Quá trình đóng gói mô hình cuối cùng bằng Joblib.
+8.7. Kết quả đầu ra
+Sau khi hoàn thành quá trình huấn luyện, mô hình cuối cùng đã được xây dựng thành công.
+Thông tin của mô hình:
+Tệp mô hình:
+models/final_polynomial_ridge_model.joblib
+Toàn bộ Pipeline đã sẵn sàng để sử dụng trong quá trình dự đoán hoặc triển khai hệ thống.
+(Chèn Hình 8.7 – Kiến trúc Final Model)
+
+
+Hình 8.7. Kiến trúc của mô hình cuối cùng sau khi huấn luyện.
+8.8. Kết luận và quyết định
+Quá trình huấn luyện cuối cùng đã hoàn thành thành công với cấu hình tối ưu được xác định từ Phase 7.
+Việc gộp tập Validation vào dữ liệu huấn luyện giúp mô hình tận dụng tối đa lượng dữ liệu sẵn có, từ đó nâng cao khả năng học và tăng tính ổn định trước khi đánh giá trên tập Test.
+Mô hình Polynomial Regression (Degree = 2) kết hợp Ridge Regression với alpha = 0.29836472402833375 đã hội tụ nhanh, tiêu tốn rất ít thời gian tính toán và được đóng gói hoàn chỉnh dưới dạng Pipeline.
+Đây sẽ là mô hình chính thức của dự án và được sử dụng trong Phase 9 – Model Evaluation, nơi tập Test độc lập sẽ được mở để đánh giá khách quan hiệu suất dự đoán của mô hình.
+(Chèn Hình 8.8 – Decision Flow: Best Model → Merge Data → Final Training → Export Model → Test Evaluation)
+
+
+Hình 8.8. Quy trình chuyển từ mô hình tối ưu sang đánh giá trên tập Test.
+4.1. Đánh giá trên tập Test
+4.1.1. Đánh giá mô hình trên tập Test
+Sau khi hoàn thành quá trình huấn luyện, mô hình Polynomial Regression được đánh giá trên tập dữ liệu Test nhằm kiểm tra khả năng dự đoán đối với các mẫu chưa từng xuất hiện trong quá trình học. Việc đánh giá được thực hiện thông qua các chỉ số R² Score, MAE và RMSE, đồng thời kết hợp với các biểu đồ trực quan để phân tích mức độ phù hợp giữa giá trị dự đoán và giá trị thực tế.
+
+Code 4.1. Đánh giá mô hình trên tập Test
+
+
+
+
+
+Hình 4.1: Biểu đồ Actual vs Predicted
+Biểu đồ Actual vs Predicted:
+Các điểm dữ liệu bám rất sát quanh đường đứt nét màu đỏ (đường hoàn hảo y = x).
+Điều này chứng tỏ Polynomial Regression đã học được cực kỳ chính xác hình dáng (độ cong) thực sự của dữ liệu. Hiện tượng hình chữ U lơ lửng của Linear Regression đã hoàn toàn biến mất!
+
+
+
+Hình 4.2: Residual Distribution
+Biểu đồ Phân phối sai số:
+Đồ thị hình chuông (KDE) của Residuals tập trung mạnh và cân xứng quanh trục số 0.
+Lỗi phân bố ngẫu nhiên (chuẩn) quanh mức 0 là dấu hiệu vàng chứng tỏ mô hình không còn bị thiên kiến (Unbiased). Lỗi lúc này chỉ còn là các nhiễu ngẫu nhiên không thể tránh khỏi (Irreducible Error). Mô hình không hề có dấu hiệu Overfitting (vì hiệu năng Test vọt cao) hay Underfitting (vì đã khớp sát dữ liệu)
+4.1.2. Phân tích kết quả
+Kết quả đánh giá cho thấy mô hình đạt R² xấp xỉ 0.94, chứng tỏ khoảng 94% biến thiên của giá trị MPG được giải thích bởi các đặc trưng đầu vào. Đây là mức hiệu suất cao đối với bộ dữ liệu Auto MPG.
+Quan sát Hình 4.1, phần lớn các điểm dữ liệu phân bố gần đường dự đoán lý tưởng, cho thấy giá trị dự đoán có độ tương đồng cao với giá trị thực tế. Đồng thời, Hình 4.2 cho thấy sai số tập trung quanh giá trị 0 và có dạng gần phân bố chuẩn, phản ánh mô hình không xuất hiện xu hướng dự đoán lệch theo một phía.
+Bên cạnh đó, các chỉ số MAE và RMSE đều ở mức thấp, chứng minh sai số dự đoán trung bình của mô hình không lớn. Tuy vẫn còn một số mẫu có sai số cao, nhưng số lượng không đáng kể và chủ yếu xuất phát từ những yếu tố chưa được mô hình hóa trong bộ dữ liệu như điều kiện vận hành, hộp số hoặc đặc tính khí động học của xe.
+4.1.3. Kết luận
+Kết quả đánh giá trên tập Test cho thấy mô hình Polynomial Regression đạt hiệu suất dự đoán tốt với R² ≈ 0.94, sai số nhỏ và phân bố sai số hợp lý. Điều này cho thấy mô hình có khả năng học tốt mối quan hệ phi tuyến giữa các đặc trưng và mức tiêu hao nhiên liệu. Tuy nhiên, do kết quả chỉ được đánh giá trên một lần chia dữ liệu, cần tiếp tục sử dụng K-Fold Cross Validation để kiểm chứng tính ổn định và khả năng tổng quát hóa của mô hình.
+4.2. Đánh giá chéo bằng K-Fold Cross Validation
+4.2.1. Đánh giá bằng K-Fold Cross Validation
+Để đánh giá tính ổn định của mô hình và giảm ảnh hưởng của việc chia dữ liệu ngẫu nhiên, nghiên cứu sử dụng phương pháp 10-Fold Cross Validation. Tập dữ liệu được chia thành 10 phần, trong đó mỗi phần lần lượt được sử dụng làm tập kiểm tra, còn 9 phần còn lại dùng để huấn luyện mô hình. Chỉ số R² Score được sử dụng để đánh giá hiệu suất trên từng Fold, từ đó tính giá trị trung bình của toàn bộ quá trình kiểm định.
+
+Code 4.2. Đánh giá mô hình bằng 10-Fold Cross Validation	
+Thực hiện đánh giá mô hình bằng phương pháp 10-Fold Cross Validation và tính giá trị R² trung bình.
+
+Hình 4.3. Boxplot kết quả 10-Fold Cross Validation
+Phân bố giá trị R² của mô hình Polynomial Regression trên 10 lần đánh giá chéo.
+
+4.2.2. Phân tích kết quả
+Kết quả Cross Validation cho thấy mô hình đạt R² trung bình khoảng 0.87, phản ánh khả năng dự đoán ổn định trên nhiều cách chia dữ liệu khác nhau. Quan sát Hình 4.3, các giá trị R² phân bố tương đối đồng đều và không xuất hiện nhiều giá trị ngoại lệ, cho thấy hiệu suất của mô hình ít bị ảnh hưởng bởi từng Fold.
+Mặc dù giá trị R² trung bình thấp hơn kết quả trên tập Test (≈ 0.94), đây là hiện tượng bình thường do Cross Validation đánh giá mô hình trên nhiều tập dữ liệu khác nhau và phản ánh khách quan hơn khả năng tổng quát hóa. Kết quả này cho thấy mô hình Polynomial Regression có tính ổn định tốt và không xuất hiện dấu hiệu Overfitting rõ rệt.
+
+4.2.3. Kết luận
+Thông qua 10-Fold Cross Validation, mô hình Polynomial Regression đạt R² trung bình khoảng 0.87 với mức dao động nhỏ giữa các Fold. Điều này cho thấy mô hình có khả năng tổng quát hóa tốt và kết quả dự đoán không phụ thuộc vào một lần chia dữ liệu ngẫu nhiên. Để đánh giá sâu hơn sự khác biệt giữa Polynomial Regression và Linear Regression, phần tiếp theo sẽ thực hiện kiểm định thống kê bằng Paired T-Test.
+
+
+
+4.3. Statistical Validation
+4.3.1. Kiểm định bằng Paired T-Test
+Để xác định liệu sự cải thiện của mô hình Polynomial Regression so với Linear Regression có mang ý nghĩa thống kê hay không, nghiên cứu sử dụng Paired T-Test trên kết quả R² thu được từ 10-Fold Cross Validation của hai mô hình. Kiểm định này giúp đánh giá xem sự khác biệt về hiệu suất có thực sự đến từ mô hình hay chỉ do sai số ngẫu nhiên trong quá trình chia dữ liệu.
+import pandas as pd
+import numpy as np
+import os
+import json
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import KFold, cross_val_score
+from scipy import stats
+
+print("Starting Step 12: Statistical Validation...")
+
+# 1. Load Data
+X = pd.read_csv('data/processed/X_features.csv')
+y = pd.read_csv('data/processed/y_target.csv').squeeze()
+
+# 2. Define Models
+# Model 1: Baseline (Linear)
+model_baseline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('regressor', LinearRegression())
+])
+
+# Model 2: Best Model (Poly + Ridge)
+with open('Results/best_params.json', 'r') as f:
+    best_params = json.load(f)
+
+model_best = Pipeline([
+    ('poly', PolynomialFeatures(degree=best_params['degree'], include_bias=False)),
+    ('scaler', StandardScaler()),
+    ('regressor', Ridge(alpha=best_params['alpha']))
+])
+
+# 3. Paired Cross-Validation
+# We must use EXACTLY the same folds for a fair Paired T-Test
+kf = KFold(n_splits=10, shuffle=True, random_state=42)
+
+scores_baseline = cross_val_score(model_baseline, X, y, cv=kf, scoring='r2')
+scores_best = cross_val_score(model_best, X, y, cv=kf, scoring='r2')
+
+# 4. Statistical Test (Paired T-Test)
+# Null Hypothesis (H0): The mean difference between the two models is zero (they are the same).
+# Alternative Hypothesis (H1): The Polynomial model is statistically different (better).
+t_stat, p_value = stats.ttest_rel(scores_best, scores_baseline)
+
+print(f"Mean R2 Baseline: {np.mean(scores_baseline):.4f}")
+print(f"Mean R2 Best Model: {np.mean(scores_best):.4f}")
+print(f"Paired T-Test: t-statistic = {t_stat:.4f}, p-value = {p_value:.6f}")
+
+# 5. Visualizations for Insight
+os.makedirs('Figures/Stats', exist_ok=True)
+plt.figure(figsize=(10, 6))
+
+# Prepare data for plotting
+df_plot = pd.DataFrame({
+    'Fold': np.tile(np.arange(1, 11), 2),
+    'Model': ['1. Linear Baseline'] * 10 + ['2. Polynomial Ridge'] * 10,
+    'R2 Score': np.concatenate([scores_baseline, scores_best])
+})
+
+# Paired point plot
+sns.pointplot(data=df_plot, x='Fold', y='R2 Score', hue='Model',
+              palette={'1. Linear Baseline': 'orange', '2. Polynomial Ridge': 'blue'},
+              markers=['o', 's'], linestyles=['-', '--'])
+
+plt.title(f"So sánh R² giữa hai mô hình trên từng Fold (Paired Comparison)\nP-Value = {p_value:.6f}")
+plt.ylabel("Validation R² Score")
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('Figures/Stats/paired_comparison.png')
+plt.close()
+
+Code 4.3. Kiểm định Paired T-Test
+Thực hiện kiểm định Paired T-Test trên kết quả R² của hai mô hình để đánh giá ý nghĩa thống kê của sự khác biệt.
+
+Hình 4.4. Kết quả kiểm định thống kê
+Kết quả so sánh hiệu suất giữa Linear Regression và Polynomial Regression thông qua Paired T-Test.
+4.3.2. Phân tích kết quả
+Kết quả kiểm định cho thấy P-value ≈ 0.0016, nhỏ hơn mức ý nghĩa 0.05. Do đó, có thể bác bỏ giả thuyết không (H₀) và kết luận rằng sự khác biệt về hiệu suất giữa Polynomial Regression và Linear Regression là có ý nghĩa thống kê.
+Điều này chứng minh rằng việc cải thiện độ chính xác của Polynomial Regression không phải do ngẫu nhiên từ quá trình chia dữ liệu, mà xuất phát từ khả năng mô hình hóa tốt hơn các mối quan hệ phi tuyến trong bộ dữ liệu Auto MPG.
+
+4.3.3. Kết luận
+Kết quả kiểm định thống kê khẳng định Polynomial Regression hoạt động tốt hơn Linear Regression với mức ý nghĩa thống kê (P-value < 0.05). Nhờ đó, có thể tin cậy rằng sự cải thiện về hiệu suất của mô hình là thực sự và có giá trị trong bài toán dự đoán mức tiêu hao nhiên liệu. Sau khi xác nhận tính hiệu quả của mô hình, phần tiếp theo sẽ phân tích các trường hợp dự đoán sai và những giới hạn còn tồn tại của mô hình thông qua Error Analysis.
+
+4.4. Error Analysis
+4.4.1. Phân tích sai số của mô hình
+Mặc dù mô hình Polynomial Regression đạt hiệu suất cao trong quá trình đánh giá, vẫn tồn tại một số trường hợp có sai số dự đoán lớn. Do đó, việc phân tích sai số giúp xác định những hạn chế của mô hình cũng như các nguyên nhân ảnh hưởng đến độ chính xác của kết quả dự đoán.
+
+Hình 4.5. Residual Plot của mô hình Polynomial Regression
+ Biểu đồ Residual Plot thể hiện mối quan hệ giữa sai số dự đoán và giá trị dự đoán của mô hình Polynomial Regression.
+
+
+4.4.2. Phân tích kết quả
+Quan sát Hình 4.5 cho thấy phần lớn các điểm sai số phân bố ngẫu nhiên quanh đường y=0y = 0y=0, không xuất hiện xu hướng tăng hoặc giảm rõ rệt. Điều này cho thấy mô hình không có dấu hiệu dự đoán thiên lệch và đã học được phần lớn mối quan hệ giữa các đặc trưng đầu vào với giá trị MPG.
+Tuy nhiên, vẫn xuất hiện một số điểm có sai số lớn. Nguyên nhân chủ yếu không đến từ thuật toán mà xuất phát từ giới hạn của bộ dữ liệu Auto MPG. Bộ dữ liệu chưa bao gồm nhiều yếu tố có ảnh hưởng trực tiếp đến mức tiêu hao nhiên liệu như kiểu hộp số, hệ số cản gió, điều kiện vận hành và tình trạng bảo dưỡng của xe.
+Hiện tượng này được gọi là Omitted Variable Bias, tức mô hình bị thiếu các biến quan trọng nên không thể giải thích hoàn toàn sự biến thiên của dữ liệu. Vì vậy, dù đã sử dụng Polynomial Regression để mô hình hóa các quan hệ phi tuyến, hiệu suất của mô hình vẫn tồn tại một giới hạn nhất định.
+
+4.4.3. Kết luận
+Phân tích sai số cho thấy các lỗi dự đoán chủ yếu bắt nguồn từ hạn chế của dữ liệu đầu vào thay vì thuật toán Polynomial Regression. Điều này cho thấy việc bổ sung thêm các đặc trưng có liên quan sẽ có tiềm năng cải thiện hiệu suất mô hình trong các nghiên cứu tiếp theo.
+
+5.1.Model Interpretability
+5.1.1. Phân tích mức độ ảnh hưởng của các đặc trưng
+Sau khi đánh giá hiệu suất của mô hình, bước tiếp theo là phân tích mức độ ảnh hưởng của các đặc trưng đầu vào đến kết quả dự đoán. Đối với mô hình Polynomial Regression kết hợp với Ridge Regression, mỗi đặc trưng sau khi biến đổi đa thức đều được gán một hệ số (Coefficient). Giá trị của các hệ số này phản ánh mức độ và chiều hướng tác động của từng đặc trưng đến giá trị dự đoán MPG.
+Việc phân tích các hệ số giúp tăng tính minh bạch của mô hình, đồng thời xác định những đặc trưng quan trọng nhất trong bài toán dự đoán mức tiêu hao nhiên liệu.
+import pandas as pd
+import numpy as np
+import os
+import joblib
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+print("Starting Step 14: Model Interpretability...")
+
+# 1. Load Data and Model
+X_train = pd.read_csv('data/processed/split/X_train.csv')
+model = joblib.load('models/final_polynomial_ridge_model.joblib')
+
+# 2. Extract Components from Pipeline
+poly = model.named_steps['poly']
+scaler = model.named_steps['scaler']
+ridge = model.named_steps['regressor']
+
+# 3. Get Feature Names and Coefficients
+# Original feature names
+original_features = X_train.columns.tolist()
+
+# Poly feature names
+poly_features = poly.get_feature_names_out(original_features)
+
+# Coefficients from Ridge
+coefficients = ridge.coef_
+
+# 4. Create a DataFrame for Feature Importance
+df_importance = pd.DataFrame({
+    'Feature': poly_features,
+    'Coefficient': coefficients,
+    'Abs_Coefficient': np.abs(coefficients)
+})
+
+# Sort by absolute coefficient to find the most impactful features
+top_features = df_importance.sort_values(by='Abs_Coefficient', ascending=False).head(15)
+
+# 5. Visualizations for Insight
+os.makedirs('Figures/Interpretability', exist_ok=True)
+plt.figure(figsize=(12, 8))
+
+# Define colors: Blue for positive impact (increases MPG), Red for negative impact (decreases MPG)
+colors = ['dodgerblue' if c > 0 else 'crimson' for c in top_features['Coefficient']]
+
+sns.barplot(x='Coefficient', y='Feature', data=top_features, palette=colors)
+plt.title("Top 15 Đặc trưng chi phối mạnh nhất đến Mô hình (Feature Importance)\n(Màu Xanh: Tăng MPG, Màu Đỏ: Giảm MPG)")
+plt.xlabel("Trọng số (Coefficient) - Mức độ ảnh hưởng")
+plt.ylabel("Tên Đặc trưng (Từ Polynomial Bậc 2)")
+plt.axvline(x=0, color='k', linestyle='--', lw=1)
+
+plt.tight_layout()
+plt.savefig('Figures/Interpretability/feature_importance.png')
+plt.close()
+Code 5.1. Trích xuất hệ số của mô hình
+Trích xuất tên các đặc trưng sau khi biến đổi Polynomial Features và hệ số tương ứng của mô hình Ridge Regression.
+
+Hình 5.1. Feature Importance của mô hình Polynomial Regression
+Biểu đồ thể hiện mức độ ảnh hưởng của các đặc trưng đến kết quả dự đoán MPG.
+5.1.2. Phân tích kết quả
+Quan sát Hình 5.1 cho thấy các đặc trưng không đóng góp như nhau vào quá trình dự đoán. Trong đó, đặc trưng weight_per_hp có hệ số lớn nhất, cho thấy đây là yếu tố ảnh hưởng mạnh nhất đến mức tiêu hao nhiên liệu. Điều này phản ánh mối quan hệ giữa trọng lượng xe và công suất động cơ đóng vai trò quan trọng trong việc xác định hiệu suất sử dụng nhiên liệu.
+Ngược lại, đặc trưng weight có hệ số âm với giá trị lớn, cho thấy khi trọng lượng xe tăng thì giá trị MPG có xu hướng giảm. Kết quả này hoàn toàn phù hợp với thực tế, bởi các phương tiện có khối lượng lớn thường tiêu thụ nhiều nhiên liệu hơn.
+Ngoài ra, các đặc trưng đa thức và đặc trưng tương tác cũng góp phần giúp mô hình học được các mối quan hệ phi tuyến mà mô hình hồi quy tuyến tính thông thường khó biểu diễn.
+
+5.1.3. Kết luận
+Kết quả phân tích cho thấy weight_per_hp là đặc trưng có ảnh hưởng lớn nhất đến khả năng dự đoán của mô hình, trong khi weight là yếu tố làm giảm giá trị MPG rõ rệt. Điều này cho thấy mô hình Polynomial Regression không chỉ đạt hiệu suất dự đoán cao mà còn phản ánh đúng mối quan hệ giữa các đặc trưng của bộ dữ liệu Auto MPG và mức tiêu hao nhiên liệu, góp phần nâng cao tính minh bạch và khả năng giải thích của mô hình.
+5.2. Kết luận chung
+Nghiên cứu đã xây dựng thành công mô hình Polynomial Regression để dự đoán mức tiêu hao nhiên liệu (MPG) trên bộ dữ liệu Auto MPG. Quá trình thực hiện bao gồm các bước tiền xử lý dữ liệu, xây dựng đặc trưng đa thức, huấn luyện mô hình, tối ưu hóa bằng Ridge Regression và đánh giá hiệu suất thông qua tập Test, 10-Fold Cross Validation và kiểm định thống kê.
+Kết quả thực nghiệm cho thấy mô hình đạt R² khoảng 0.94 trên tập Test và R² trung bình khoảng 0.87 khi đánh giá bằng 10-Fold Cross Validation. Bên cạnh đó, kiểm định Paired T-Test với P-value < 0.05 chứng minh rằng Polynomial Regression có hiệu suất tốt hơn Linear Regression và sự cải thiện này có ý nghĩa thống kê.
+Thông qua quá trình phân tích mô hình, nghiên cứu cũng xác định được các đặc trưng như weight_per_hp và weight có ảnh hưởng đáng kể đến khả năng dự đoán mức tiêu hao nhiên liệu. Đồng thời, việc phân tích sai số cho thấy giới hạn của mô hình chủ yếu xuất phát từ việc bộ dữ liệu chưa bao gồm đầy đủ các yếu tố ảnh hưởng đến mức tiêu hao nhiên liệu, chẳng hạn như kiểu hộp số, hệ số cản gió và điều kiện vận hành của phương tiện.
+Nhìn chung, kết quả đạt được cho thấy Polynomial Regression là một phương pháp phù hợp để giải quyết bài toán dự đoán MPG trên bộ dữ liệu Auto MPG, đồng thời minh họa rõ vai trò của Feature Engineering, Regularization, Cross Validation và Statistical Validation trong việc xây dựng một mô hình Machine Learning có độ chính xác và khả năng tổng quát hóa tốt.
+Trong các nghiên cứu tiếp theo, có thể mở rộng bằng cách bổ sung thêm các đặc trưng đầu vào hoặc so sánh Polynomial Regression với các mô hình học máy khác như Random Forest, Gradient Boosting hoặc XGBoost nhằm nâng cao hơn nữa hiệu suất dự đoán và khả năng ứng dụng của mô hình trong thực tế.
+
+
+

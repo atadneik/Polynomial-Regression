@@ -13,13 +13,23 @@ Dưới đây là cấu trúc chi tiết để bạn viết báo cáo tiểu lu�
 
 ---
 
-## PHẦN 2: CHUẨN BỊ VÀ TIỀN XỬ LÝ DỮ LIỆU (DATA PREPARATION)
+## PHẦN 2: CƠ SỞ LÝ THUYẾT
+**2.1. Từ Linear đến Polynomial Regression:**
+- Giới thiệu công thức toán học và lý do cần mở rộng từ không gian tuyến tính sang phi tuyến.
+**2.2. Ridge Regression & Regularization:**
+- Giải thích hình phạt L2 (L2 Penalty) và cách nó giúp kiểm soát sự bùng nổ của các trọng số đa thức.
+**2.3. Bias-Variance Tradeoff:**
+- Sự đánh đổi giữa độ chệch và phương sai khi tăng bậc đa thức (Underfitting vs Overfitting).
 
-**2.1. Khám phá dữ liệu (EDA - Bước 1)**
+---
+
+## PHẦN 3: CHUẨN BỊ VÀ TIỀN XỬ LÝ DỮ LIỆU (DATA PREPARATION)
+
+**3.1. Khám phá dữ liệu (EDA - Bước 1)**
 - *Hình ảnh:* Biểu đồ phân phối, Ma trận tương quan.
 - *Insight:* Đa cộng tuyến và tính phi tuyến tính.
 
-**2.2. Làm sạch dữ liệu (Data Cleaning - Bước 2)**
+**3.2. Làm sạch dữ liệu (Data Cleaning - Bước 2)**
 - *Đoạn code cần chèn:* Kỹ thuật điền giá trị khuyết (Median Imputation).
   ```python
   # Thay thế missing value ở horsepower bằng Median để chống nhiễu từ outlier
@@ -28,7 +38,7 @@ Dưới đây là cấu trúc chi tiết để bạn viết báo cáo tiểu lu�
   df.drop(columns=['car_name'], inplace=True) # Bỏ cột định danh
   ```
 
-**2.3. Kỹ thuật Đặc trưng (Feature Engineering - Bước 3)**
+**3.3. Kỹ thuật Đặc trưng (Feature Engineering - Bước 3)**
 - *Đoạn code cần chèn:* Tạo tính năng mới từ domain knowledge.
   ```python
   # One-Hot Encoding cho origin
@@ -39,7 +49,7 @@ Dưới đây là cấu trúc chi tiết để bạn viết báo cáo tiểu lu�
   ```
 - *Insight:* Giải thích tại sao `weight_per_hp` lại quan trọng.
 
-**2.4. Phân chia dữ liệu (Data Split - Bước 4)**
+**3.4. Phân chia dữ liệu (Data Split - Bước 4)**
 - *Đoạn code cần chèn:* Chia Train/Val/Test an toàn.
   ```python
   # Chia 70% Train, 30% Temp
@@ -51,13 +61,28 @@ Dưới đây là cấu trúc chi tiết để bạn viết báo cáo tiểu lu�
 
 ---
 
-## PHẦN 3: XÂY DỰNG VÀ LỰA CHỌN MÔ HÌNH (MODELING)
+## PHẦN 4: XÂY DỰNG VÀ LỰA CHỌN MÔ HÌNH (MODELING)
 
-**3.1. Mô hình Cơ sở (Baseline Model - Bước 5)**
+**4.1. Mô hình Cơ sở (Baseline Model - Bước 5)**
 - *Hình ảnh:* Biểu đồ Residuals hình chữ U. Luận điểm chốt hạ chứng minh tính phi tuyến tính.
 
-**3.2. Cấu trúc Mô hình Chính (Model Selection & Training - Bước 6 & 8)**
-- *Đoạn code cần chèn (CỰC KỲ QUAN TRỌNG):* Code thiết lập Pipeline chống Data Leakage. Giảng viên rất thích điểm này!
+**4.2. Lựa chọn Mô hình (Model Selection - Bước 6)**
+- So sánh các ứng viên (Linear, Poly bậc 2, Poly bậc 3, Poly Ridge, Poly Lasso).
+- *Hình ảnh:* Biểu đồ so sánh RMSE giữa Bậc 2 và thảm họa Bậc 3 (Overfitting). Khẳng định chọn Poly Bậc 2 + Ridge.
+
+**4.3. Tinh chỉnh Siêu tham số (Hyperparameter Tuning - Bước 7)**
+- *Đoạn code cần chèn:* Quá trình quét logarit tìm Alpha.
+  ```python
+  alphas = np.logspace(-3, 4, 100) # Quét 100 giá trị từ 0.001 đến 10000
+  for alpha in alphas:
+      pipeline.set_params(regressor__alpha=alpha)
+      pipeline.fit(X_train, y_train)
+      # Tính RMSE...
+  ```
+- *Hình ảnh:* Biểu đồ Validation Curve võng hình thung lũng.
+
+**4.4. Huấn luyện Mô hình Cuối cùng (Final Model Training - Bước 8)**
+- *Đoạn code cần chèn (CỰC KỲ QUAN TRỌNG):* Code thiết lập Pipeline chống Data Leakage.
   ```python
   from sklearn.pipeline import Pipeline
   from sklearn.preprocessing import StandardScaler, PolynomialFeatures
@@ -69,59 +94,50 @@ Dưới đây là cấu trúc chi tiết để bạn viết báo cáo tiểu lu�
       ('scaler', StandardScaler()),
       ('regressor', Ridge(alpha=0.2984))
   ])
+  # Huấn luyện trên tập gộp Train + Val
   final_pipeline.fit(X_train_full, y_train_full)
   ```
-- *Hình ảnh:* Biểu đồ so sánh RMSE giữa Bậc 2 và thảm họa Bậc 3.
-
-**3.3. Tinh chỉnh Siêu tham số (Hyperparameter Tuning - Bước 7)**
-- *Đoạn code cần chèn:* Quá trình quét logarit tìm Alpha.
-  ```python
-  alphas = np.logspace(-3, 4, 100) # Quét 100 giá trị từ 0.001 đến 10000
-  for alpha in alphas:
-      pipeline.set_params(regressor__alpha=alpha)
-      pipeline.fit(X_train, y_train)
-      # Tính RMSE...
-  ```
-- *Hình ảnh:* Biểu đồ Validation Curve võng hình thung lũng.
 
 ---
 
-## PHẦN 4: KIỂM ĐỊNH VÀ ĐÁNH GIÁ (EVALUATION & VALIDATION)
+## PHẦN 5: KIỂM ĐỊNH VÀ ĐÁNH GIÁ (EVALUATION & VALIDATION)
 
-**4.1. Đánh giá trên tập Test (Evaluation Metrics - Bước 9)**
+**5.1. Đánh giá trên tập Test (Evaluation Metrics - Bước 9)**
 - *Hình ảnh:* Đồ thị Actual vs Predicted và Biểu đồ sai số hình chuông chuẩn.
 - *Kết quả:* R² ~ 0.94.
 
-**4.2. Đánh giá chéo K-Fold (Cross Validation - Bước 10)**
+**5.2. Đánh giá chéo K-Fold (Cross Validation - Bước 10)**
 - *Đoạn code cần chèn:* Code chạy CV chuẩn mực.
   ```python
   from sklearn.model_selection import cross_validate, KFold
   kf = KFold(n_splits=10, shuffle=True, random_state=42)
   cv_results = cross_validate(final_pipeline, X, y, cv=kf, scoring='r2')
-  print("Mean R2:", np.mean(cv_results['test_score']))
   ```
 - *Hình ảnh:* Biểu đồ Boxplot của 10-Fold CV (Giải thích mốc kỳ vọng 87%).
 
-**4.3. Kiểm định thống kê (Statistical Validation - Bước 12)**
+**5.3. Quản lý Thí nghiệm (Experiment Management - Bước 11)**
+- Ghi log các tham số, siêu tham số, đặc trưng sử dụng và kết quả đánh giá (JSON format).
+- Khẳng định tính tái lập của thí nghiệm và xác nhận mức trần 87% do giới hạn vật lý.
+
+**5.4. Kiểm định thống kê (Statistical Validation - Bước 12)**
 - *Đoạn code cần chèn:* Dùng T-Test để lấy P-Value.
   ```python
   from scipy import stats
   # Kiểm định T bắt cặp (Paired T-Test) giữa Linear và Polynomial
   t_stat, p_value = stats.ttest_rel(scores_poly, scores_linear)
   ```
-- *Phân tích Insight:* P-value < 0.05 (thực tế 0.0016) chứng minh việc mô hình Poly mạnh hơn Linear là có ý nghĩa thống kê, không phải do ăn may.
+- *Phân tích Insight:* P-value < 0.05 (thực tế 0.0016) chứng minh việc mô hình Poly mạnh hơn Linear là có ý nghĩa thống kê.
 
-**4.4. Phân tích Lỗi và Ranh giới mô hình (Error Analysis - Bước 13)**
-- *Insight:* Lý thuyết **Omitted Variable Bias** (Thiếu thông tin cản gió, hộp số) làm mô hình vĩnh viễn kẹt ở mốc 87%.
+**5.5. Phân tích Lỗi và Ranh giới mô hình (Error Analysis - Bước 13)**
+- *Insight:* Lý thuyết **Omitted Variable Bias** (Thiếu thông tin cản gió, hộp số) làm mô hình đánh giá sai các xe nhỏ, tiết kiệm nhiên liệu xuất xứ Nhật/Âu.
 
 ---
 
-## PHẦN 5: GIẢI THÍCH MÔ HÌNH VÀ KẾT LUẬN
+## PHẦN 6: GIẢI THÍCH MÔ HÌNH VÀ KẾT LUẬN
 
-**5.1. Mở hộp đen Mô hình (Model Interpretability - Bước 14)**
+**6.1. Mở hộp đen Mô hình (Model Interpretability - Bước 14)**
 - *Đoạn code cần chèn:* Cách dịch ngược tên đặc trưng từ Polynomial.
   ```python
-  # Lấy tên đặc trưng đa thức và ghép với trọng số của Ridge
   poly = final_pipeline.named_steps['poly']
   ridge = final_pipeline.named_steps['regressor']
   poly_features = poly.get_feature_names_out(original_features)
@@ -130,5 +146,6 @@ Dưới đây là cấu trúc chi tiết để bạn viết báo cáo tiểu lu�
 - *Hình ảnh:* Đồ thị thanh ngang Feature Importance.
 - *Phân tích:* Khẳng định `weight_per_hp` là đặc trưng Vàng, và mô hình cực kỳ ghét `weight`.
 
-**5.2. Kết luận chung**
+**6.2. Tổng kết chung**
+- Bảng Tổng Kết kết quả số liệu (So sánh Test R², Test RMSE, CV R², P-Value giữa Baseline và Polynomial Ridge).
 - Tổng kết 14 bước. Bài học về Data Leakage và chống Overfitting.
